@@ -1,0 +1,11 @@
+# Binaries
+/go-menu-viewer
+*.exe
+*.out
+
+# Dependency files
+go.sum
+
+# System files
+.DS_Store
+*.swp

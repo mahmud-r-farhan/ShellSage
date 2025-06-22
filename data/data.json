@@ -1,0 +1,41 @@
+{
+  "Technology": [
+    "Go is a statically typed, compiled programming language designed at Google.",
+    "Docker simplifies containerization of applications across platforms.",
+    "JavaScript is the language of the web, running in all modern browsers.",
+    "Rust is known for memory safety and zero-cost abstractions."
+  ],
+  "Motivation": [
+    "Success is not final, failure is not fatal: It is the courage to continue that counts.",
+    "Push yourself, because no one else is going to do it for you.",
+    "Great things never come from comfort zones.",
+    "Don’t watch the clock; do what it does. Keep going."
+  ],
+  "Funny": [
+    "Why do Java developers wear glasses? Because they don’t C#.",
+    "Debugging: Being the detective in a crime movie where you are also the murderer.",
+    "I changed my password to 'incorrect', so whenever I forget it the computer tells me, 'Your password is incorrect'.",
+    "To understand what recursion is, you must first understand recursion."
+  ],
+  "History": [
+    "The Great Wall of China is more than 13,000 miles long.",
+    "Leonardo da Vinci could write with one hand and draw with the other at the same time.",
+    "The shortest war in history was between Britain and Zanzibar on August 27, 1896. Zanzibar surrendered after 38 minutes."
+  ],
+  "Science": [
+    "Water can boil and freeze at the same time in a process called the triple point.",
+    "The Eiffel Tower can grow more than 6 inches in summer due to thermal expansion.",
+    "Bananas are radioactive — they contain potassium-40, a naturally occurring isotope."
+  ],
+  "Books": [
+    "“1984” by George Orwell depicts a dystopian future ruled by surveillance and propaganda.",
+    "“Sapiens” by Yuval Noah Harari explores the history and evolution of humankind.",
+    "“The Alchemist” by Paulo Coelho encourages readers to follow their personal legends."
+  ],
+  "Quotes": [
+    "“Be yourself; everyone else is already taken.” – Oscar Wilde",
+    "“In the middle of every difficulty lies opportunity.” – Albert Einstein",
+    "“Whether you think you can or think you can’t, you’re right.” – Henry Ford",
+    "“It always seems impossible until it’s done.” – Nelson Mandela"
+  ]
+}
