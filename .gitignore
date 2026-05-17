@@ -1,7 +1,14 @@
+# Environment variables
+.env
+.env.local
+.env.*.local
+
 # Binaries
 /go-menu-viewer
-*.exe
+shellsage
+shellsage.exe
 *.out
+*.exe
 
 # Dependency files
 go.sum
@@ -9,3 +16,17 @@ go.sum
 # System files
 .DS_Store
 *.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Build output
+dist/
+build/
+tmp/

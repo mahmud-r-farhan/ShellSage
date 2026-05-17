@@ -2,108 +2,110 @@ package main
 
 import (
 	"bufio"
-	"encoding/json"
+	"context"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
+
+	"github.com/fatih/color"
 )
 
-type Data map[string][]string
-
-func loadData(filepath string) (Data, error) {
-	file, err := os.ReadFile(filepath)
-	if err != nil {
-		return nil, err
-	}
-
-	var data Data
-	err = json.Unmarshal(file, &data)
-	if err != nil {
-		return nil, err
-	}
-
-	return data, nil
-}
-
-func showCategoriesIndexed(data Data) []string {
-	fmt.Println("\n📚 Available Categories:")
-	keys := []string{}
-	i := 1
-	for category := range data {
-		fmt.Printf(" %d. %s\n", i, category)
-		keys = append(keys, category)
-		i++
-	}
-	fmt.Println("\nType the number of a category, or 'search <word>', or 'exit':")
-	return keys
-}
-
-func showInfo(category string, data Data) {
-	items := data[category]
-	fmt.Printf("\n🔍 Info for \"%s\":\n", category)
-	for _, item := range items {
-		fmt.Println("- ", item)
-	}
-}
-
-func searchQuotes(data Data, keyword string) {
-	fmt.Printf("\n🔍 Search Results for \"%s\":\n", keyword)
-	found := false
-	for category, items := range data {
-		for _, item := range items {
-			if strings.Contains(strings.ToLower(item), strings.ToLower(keyword)) {
-				fmt.Printf("[%s] %s\n", category, item)
-				found = true
-			}
-		}
-	}
-	if !found {
-		fmt.Println("❌ No match found.")
-	}
-}
-
 func main() {
-	data, err := loadData("data/data.json")
+	// Load configuration from .env
+	config, err := LoadConfig()
 	if err != nil {
-		fmt.Println("❌ Error loading data:", err)
-		return
+		color.Red("❌ Error loading configuration: %v", err)
+		os.Exit(1)
 	}
 
+	// Initialize OpenRouter client
+	client := NewOpenRouterClient(config.APIKey, config.Model)
+
+	// Print welcome banner
+	printBanner()
+
+	// Initialize conversation history
+	var conversationHistory []Message
+
+	// Main chat loop
 	reader := bufio.NewReader(os.Stdin)
 
 	for {
-		keys := showCategoriesIndexed(data)
-		fmt.Print("\n✍️ Enter your choice: ")
-		input, _ := reader.ReadString('\n')
-		input = strings.TrimSpace(input)
+		// Print user input prompt
+		color.Cyan("\n👤 You: ")
+		fmt.Print("")
 
-		if input == "exit" {
-			fmt.Println("👋 Goodbye!")
-			break
-		}
-
-		if strings.HasPrefix(input, "search ") {
-			query := strings.TrimPrefix(input, "search ")
-			searchQuotes(data, query)
+		// Read user input
+		userInput, err := reader.ReadString('\n')
+		if err != nil {
+			color.Red("Error reading input: %v", err)
 			continue
 		}
 
-		index, err := strconv.Atoi(input)
-		if err == nil && index >= 1 && index <= len(keys) {
-			selected := keys[index-1]
-			showInfo(selected, data)
+		userInput = strings.TrimSpace(userInput)
 
-			fmt.Print("\n⏪ Type 'main' to go back or 'exit' to quit: ")
-			back, _ := reader.ReadString('\n')
-			back = strings.TrimSpace(back)
-
-			if back == "exit" {
-				fmt.Println("👋 Goodbye!")
-				break
-			}
-		} else {
-			fmt.Println("⚠️ Invalid input. Try again.")
+		// Handle special commands
+		if userInput == "" {
+			continue
 		}
+
+		if strings.ToLower(userInput) == "/exit" || strings.ToLower(userInput) == "/quit" {
+			color.Green("\n✨ Goodbye! Thanks for chatting.\n")
+			break
+		}
+
+		if strings.ToLower(userInput) == "/clear" {
+			conversationHistory = []Message{}
+			color.Green("✅ Conversation cleared!\n")
+			continue
+		}
+
+		if strings.ToLower(userInput) == "/help" {
+			printHelp()
+			continue
+		}
+
+		// Add user message to history
+		conversationHistory = append(conversationHistory, Message{
+			Role:    "user",
+			Content: userInput,
+		})
+
+		// Get response from LLM
+		color.Yellow("\n🤖 Assistant: ")
+		response, err := client.Chat(context.Background(), conversationHistory)
+		if err != nil {
+			color.Red("Error getting response: %v", err)
+			// Remove the last message from history on error
+			conversationHistory = conversationHistory[:len(conversationHistory)-1]
+			continue
+		}
+
+		// Print response
+		fmt.Println(response)
+
+		// Add assistant response to history
+		conversationHistory = append(conversationHistory, Message{
+			Role:    "assistant",
+			Content: response,
+		})
 	}
+}
+
+// printBanner prints the welcome banner
+func printBanner() {
+	color.Cyan("╔════════════════════════════════════════════════════════╗\n")
+	color.Cyan("║            🚀 ShellSage - AI Chat CLI v1.0              ║\n")
+	color.Cyan("║         Powered by OpenRouter & Cutting-Edge LLMs       ║\n")
+	color.Cyan("╚════════════════════════════════════════════════════════╝\n")
+	color.White("Type /help for available commands | /exit to quit\n")
+}
+
+// printHelp prints available commands
+func printHelp() {
+	color.Green("\n📚 Available Commands:\n")
+	color.White("  /exit  - Exit the chat\n")
+	color.White("  /quit  - Exit the chat (alias for /exit)\n")
+	color.White("  /clear - Clear conversation history\n")
+	color.White("  /help  - Show this help message\n")
 }
