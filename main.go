@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/fatih/color"
 )
@@ -18,14 +19,20 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Initialize OpenRouter client
-	client := NewOpenRouterClient(config.APIKey, config.Model)
-
 	// Print welcome banner
-	printBanner()
+	printBannerEnhanced(config)
 
-	// Initialize conversation history
-	var conversationHistory []Message
+	// Initialize conversation state
+	state := &ConversationState{
+		Messages:    []Message{},
+		Persona:     personas["general"],
+		Model:       config.Model,
+		Temperature: 0.7,
+		StartTime:   time.Now(),
+	}
+
+	// Initialize OpenRouter client
+	client := NewOpenRouterClient(config.APIKey, state.Model)
 
 	// Main chat loop
 	reader := bufio.NewReader(os.Stdin)
@@ -44,40 +51,132 @@ func main() {
 
 		userInput = strings.TrimSpace(userInput)
 
-		// Handle special commands
+		// Handle empty input
 		if userInput == "" {
 			continue
 		}
 
-		if strings.ToLower(userInput) == "/exit" || strings.ToLower(userInput) == "/quit" {
-			color.Green("\n✨ Goodbye! Thanks for chatting.\n")
-			break
-		}
+		// Handle special commands
+		if strings.HasPrefix(strings.ToLower(userInput), "/") {
+			cmd := strings.ToLower(userInput)
+			parts := strings.Fields(cmd)
 
-		if strings.ToLower(userInput) == "/clear" {
-			conversationHistory = []Message{}
-			color.Green("✅ Conversation cleared!\n")
-			continue
-		}
+			switch parts[0] {
+			case "/exit", "/quit":
+				printStats(state)
+				color.Green("\n✨ Goodbye! Thanks for chatting.\n")
+				return
 
-		if strings.ToLower(userInput) == "/help" {
-			printHelp()
-			continue
+			case "/clear":
+				state.Messages = []Message{}
+				state.TokenUsage = TokenUsageStats{}
+				state.StartTime = time.Now()
+				color.Green("✅ Conversation cleared!\n")
+				continue
+
+			case "/help":
+				printExtendedHelp()
+				continue
+
+			case "/model":
+				newModel := selectModel(state.Model)
+				if newModel != state.Model {
+					state.Model = newModel
+					client = NewOpenRouterClient(config.APIKey, state.Model)
+					color.Green(fmt.Sprintf("✅ Model changed to: %s\n", newModel))
+				}
+				continue
+
+			case "/persona":
+				state.Persona = selectPersona()
+				color.Green(fmt.Sprintf("✅ Persona changed to: %s\n", state.Persona.Name))
+				continue
+
+			case "/temp":
+				state.Temperature = adjustTemperature(state.Temperature)
+				color.Green(fmt.Sprintf("✅ Temperature set to: %.2f\n", state.Temperature))
+				continue
+
+			case "/save":
+				saveConversation(state)
+				continue
+
+			case "/load":
+				listConversations()
+				color.Cyan("\nEnter filename to load: ")
+				filename, _ := reader.ReadString('\n')
+				filename = strings.TrimSpace(filename)
+				if filename != "" {
+					if loaded, err := loadConversation(filename); err == nil {
+						state = loaded
+						state.StartTime = time.Now()
+						color.Green("✅ Conversation loaded!\n")
+					} else {
+						color.Red(fmt.Sprintf("❌ Error loading: %v\n", err))
+					}
+				}
+				continue
+
+			case "/list":
+				listConversations()
+				continue
+
+			case "/search":
+				if len(parts) > 1 {
+					query := strings.Join(parts[1:], " ")
+					searchConversation(state, query)
+				} else {
+					color.Yellow("Usage: /search <text>\n")
+				}
+				continue
+
+			case "/stats":
+				printStats(state)
+				continue
+
+			case "/copy":
+				if len(state.Messages) > 0 && state.Messages[len(state.Messages)-1].Role == "assistant" {
+					lastMessage := state.Messages[len(state.Messages)-1].Content
+					// Copy to clipboard (basic implementation)
+					color.Green(fmt.Sprintf("✅ Last response:\n%s\n", lastMessage))
+				} else {
+					color.Yellow("No assistant message to copy.\n")
+				}
+				continue
+
+			case "/history":
+				showHistory(state, 10)
+				continue
+
+			default:
+				color.Yellow(fmt.Sprintf("❌ Unknown command: %s\n", parts[0]))
+				color.White("Type /help for available commands.\n")
+				continue
+			}
 		}
 
 		// Add user message to history
-		conversationHistory = append(conversationHistory, Message{
+		state.Messages = append(state.Messages, Message{
 			Role:    "user",
 			Content: userInput,
 		})
 
-		// Get response from LLM
+		// Build messages with system prompt
+		messagesWithSystem := []Message{
+			{
+				Role:    "system",
+				Content: state.Persona.Prompt,
+			},
+		}
+		messagesWithSystem = append(messagesWithSystem, state.Messages...)
+
+		// Get response from LLM with usage tracking
 		color.Yellow("\n🤖 Assistant: ")
-		response, err := client.Chat(context.Background(), conversationHistory)
+		response, usage, err := client.ChatWithUsage(context.Background(), messagesWithSystem, state.Temperature)
 		if err != nil {
-			color.Red("Error getting response: %v", err)
+			color.Red(fmt.Sprintf("❌ Error getting response: %v\n", err))
 			// Remove the last message from history on error
-			conversationHistory = conversationHistory[:len(conversationHistory)-1]
+			state.Messages = state.Messages[:len(state.Messages)-1]
 			continue
 		}
 
@@ -85,27 +184,20 @@ func main() {
 		fmt.Println(response)
 
 		// Add assistant response to history
-		conversationHistory = append(conversationHistory, Message{
+		state.Messages = append(state.Messages, Message{
 			Role:    "assistant",
 			Content: response,
 		})
+
+		// Update token usage
+		if usage != nil {
+			state.TokenUsage.TotalPromptTokens += usage.PromptTokens
+			state.TokenUsage.TotalCompletionTokens += usage.CompletionTokens
+			state.TokenUsage.TotalTokens += usage.TotalTokens
+			state.TokenUsage.MessagesCount = len(state.Messages) / 2
+
+			color.Magenta(fmt.Sprintf("\n[Tokens: +%d prompt, +%d completion | Total: %d]\n",
+				usage.PromptTokens, usage.CompletionTokens, state.TokenUsage.TotalTokens))
+		}
 	}
-}
-
-// printBanner prints the welcome banner
-func printBanner() {
-	color.Cyan("╔════════════════════════════════════════════════════════╗\n")
-	color.Cyan("║            🚀 ShellSage - AI Chat CLI v1.0              ║\n")
-	color.Cyan("║         Powered by OpenRouter & Cutting-Edge LLMs       ║\n")
-	color.Cyan("╚════════════════════════════════════════════════════════╝\n")
-	color.White("Type /help for available commands | /exit to quit\n")
-}
-
-// printHelp prints available commands
-func printHelp() {
-	color.Green("\n📚 Available Commands:\n")
-	color.White("  /exit  - Exit the chat\n")
-	color.White("  /quit  - Exit the chat (alias for /exit)\n")
-	color.White("  /clear - Clear conversation history\n")
-	color.White("  /help  - Show this help message\n")
 }

@@ -74,10 +74,15 @@ func NewOpenRouterClient(apiKey, model string) *OpenRouterClient {
 
 // Chat sends a message and returns the response
 func (c *OpenRouterClient) Chat(ctx context.Context, messages []Message) (string, error) {
+	return c.ChatWithOptions(ctx, messages, 0.7)
+}
+
+// ChatWithOptions sends a message with custom parameters
+func (c *OpenRouterClient) ChatWithOptions(ctx context.Context, messages []Message, temperature float64) (string, error) {
 	req := &ChatRequest{
 		Model:       c.model,
 		Messages:    messages,
-		Temperature: 0.7,
+		Temperature: temperature,
 		MaxTokens:   2048,
 		Stream:      false,
 	}
@@ -92,6 +97,42 @@ func (c *OpenRouterClient) Chat(ctx context.Context, messages []Message) (string
 	}
 
 	return response.Choices[0].Message.Content, nil
+}
+
+// ChatWithUsage returns response with token usage statistics
+func (c *OpenRouterClient) ChatWithUsage(ctx context.Context, messages []Message, temperature float64) (string, *struct {
+	PromptTokens     int
+	CompletionTokens int
+	TotalTokens      int
+}, error) {
+	req := &ChatRequest{
+		Model:       c.model,
+		Messages:    messages,
+		Temperature: temperature,
+		MaxTokens:   2048,
+		Stream:      false,
+	}
+
+	response, err := c.sendRequest(ctx, req)
+	if err != nil {
+		return "", nil, err
+	}
+
+	if len(response.Choices) == 0 {
+		return "", nil, fmt.Errorf("no choices in response")
+	}
+
+	usage := &struct {
+		PromptTokens     int
+		CompletionTokens int
+		TotalTokens      int
+	}{
+		PromptTokens:     response.Usage.PromptTokens,
+		CompletionTokens: response.Usage.CompletionTokens,
+		TotalTokens:      response.Usage.TotalTokens,
+	}
+
+	return response.Choices[0].Message.Content, usage, nil
 }
 
 // sendRequest sends a request to the OpenRouter API

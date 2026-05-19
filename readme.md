@@ -7,6 +7,7 @@ A beautiful, fast, and production-ready CLI chat application powered by **OpenRo
 
 ## ✨ Features
 
+### Core Features
 - 🎨 **Beautiful CLI Interface** - Stunning colored output and intuitive design
 - ⚡ **Fast & Responsive** - Built with Go for speed and efficiency
 - 🔄 **Conversation History** - Maintains context across multiple messages
@@ -14,6 +15,16 @@ A beautiful, fast, and production-ready CLI chat application powered by **OpenRo
 - 🛡️ **Error Handling** - Robust error handling and helpful messages
 - 📦 **Easy Setup** - Simple configuration with `.env` files
 - 🔧 **Best Practices** - Clean code, modular structure, well-documented
+
+### Enhanced v2.0 Features
+- 🎭 **AI Personas** - 6 pre-built personas (Developer, Writer, Teacher, Analyst, etc.)
+- 🌡️ **Temperature Control** - Adjust creativity level (0.0 = focused, 1.0 = creative)
+- 🔀 **Dynamic Model Switching** - Change models on-the-fly without restarting
+- 💾 **Save & Load Conversations** - Persist chats to JSON files
+- 🔍 **Search Conversations** - Find specific topics in your history
+- 📊 **Token Usage Tracking** - Monitor API costs in real-time
+- 📈 **Statistics Display** - View session duration, message count, token usage
+- 📜 **Message History Viewer** - Review past messages easily
 
 ## 📋 Requirements
 
@@ -76,25 +87,48 @@ shellsage
 
 Once the CLI starts, you'll see a welcome banner. Start typing your questions or messages!
 
-### Available Commands
+### Available Commands (v2.0)
 
-- `/exit` or `/quit` - Exit the chat
-- `/clear` - Clear conversation history
-- `/help` - Show help message
-- Type normally - Send a message to the LLM
+| Command | Description |
+|---------|-------------|
+| `/help` | Show all available commands |
+| `/exit` or `/quit` | Exit the chat |
+| `/clear` | Clear conversation history and reset session |
+| `/model` | Interactively select a different AI model |
+| `/persona` | Choose an AI persona (Developer, Writer, Teacher, etc.) |
+| `/temp` | Adjust temperature (creativity level: 0.0-1.0) |
+| `/save` | Save current conversation to a JSON file |
+| `/load` | Load a previously saved conversation |
+| `/list` | List all saved conversations |
+| `/search <text>` | Search conversation history for keywords |
+| `/stats` | Display session statistics and token usage |
+| `/copy` | Copy the last assistant response |
+| `/history` | Show the last 10 messages |
 
-### Example Interaction
+### Quick Example
 
 ```
-👤 You: Hello! What is Go?
-🤖 Assistant: Go is a statically typed, compiled programming language created by Google...
+👤 You: /persona
+🎭 Available Personas:
+  [1] General Assistant
+  [2] Expert Developer
+  [3] Creative Writer
+...
+Select persona (default=1): 2
+✅ Persona changed to: Expert Developer
 
-👤 You: Tell me more about its concurrency model
-🤖 Assistant: Go's concurrency model is based on goroutines and channels...
+👤 You: How do I optimize Go applications?
+🤖 Assistant: Here are key optimization techniques for Go...
+[Tokens: +234 prompt, +512 completion | Total: 746]
+
+👤 You: /save
+✅ Conversation saved to conversations/chat_2026-05-19_14-32-15.json
 
 👤 You: /exit
 ✨ Goodbye! Thanks for chatting.
 ```
+
+**📚 For detailed feature documentation, see [ENHANCED_FEATURES.md](ENHANCED_FEATURES.md)**
 
 ## 🎯 Supported Models
 
@@ -222,14 +256,19 @@ Contributions are welcome! Please:
 
 ## 🚀 Roadmap
 
-- [ ] Streaming responses for real-time output
-- [ ] Custom system prompts
-- [ ] Conversation persistence to file
-- [ ] Multi-conversation support
-- [ ] Token usage tracking and display
-- [ ] Interactive model selection menu
-- [ ] Configuration UI
+- [x] ✅ Streaming responses for real-time output
+- [x] ✅ Custom system prompts (Personas)
+- [x] ✅ Conversation persistence to file
+- [x] ✅ Multi-conversation support (save/load)
+- [x] ✅ Token usage tracking and display
+- [x] ✅ Interactive model selection menu
+- [x] ✅ Dynamic persona switching
+- [ ] Configuration UI/TUI
 - [ ] Docker support
+- [ ] Clipboard integration for `/copy` command
+- [ ] Conversation export to Markdown/PDF
+- [ ] Custom persona creation
+- [ ] Chat branching for alternative responses
 
 ---
 

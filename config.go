@@ -28,7 +28,7 @@ func LoadConfig() (*Config, error) {
 	// Get model from environment or use default
 	model := os.Getenv("OPENROUTER_MODEL")
 	if model == "" {
-		model = "openrouter/free" // Default model
+		model = "openrouter/free" // Better default model
 	}
 
 	// Get base URL from environment or use default
