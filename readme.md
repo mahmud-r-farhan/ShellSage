@@ -5,6 +5,9 @@ A beautiful, fast, and production-ready CLI chat application powered by **OpenRo
 ![Go](https://img.shields.io/badge/Go-1.24-blue?style=flat-square&logo=go)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
+
+[![shellsage.png](https://i.postimg.cc/9ffYqzWR/shellsage.png)](https://postimg.cc/yDwZM13s)
+
 ## ✨ Features
 
 ### Core Features
