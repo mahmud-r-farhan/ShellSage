@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  shellsage:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: shellsage-cli
+    stdin_open: true  # -i
+    tty: true         # -t
+    env_file:
+      - .env
+    volumes:
+      - ./conversations:/root/conversations
+      - ./exports:/root/exports
+      - shellsage-data:/root/.shellsage
+    restart: "no"
+
+volumes:
+  shellsage-data:

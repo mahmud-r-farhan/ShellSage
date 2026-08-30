@@ -1,131 +1,62 @@
-# ⚡ Quick Reference Card
+# 📖 ShellSage Quick Reference (Cheatsheet)
 
-## 🎯 Most Used Commands
+## ⌨️ Command Cheatsheet
 
-### Start Interactive Setup
-```
-/persona    # Choose your AI personality
-/temp       # Set creativity level
-/model      # Pick your LLM
-```
+### Core Commands
+- `/help` - Show command reference
+- `/config` - Launch configuration & provider setup wizard
+- `/provider` - Switch active provider (OpenRouter, OpenAI, Claude, Gemini, Groq, Ollama...)
+- `/model` - Switch active model for current provider
+- `/persona` - Switch active persona or create a new custom persona (`/persona create`)
+- `/temp` - Adjust temperature / creativity level (0.0 - 1.0)
+- `/clear` - Clear conversation memory & start fresh tree
+- `/exit` or `/quit` - Save session and exit
 
-### Chat & Manage
-```
-/save       # Save this conversation
-/stats      # See token usage & time
-/clear      # Start fresh
-```
+### Clipboard & Export
+- `/copy` - Copy last assistant response to clipboard
+- `/copy code` - Extract and copy only code snippets from last response
+- `/copy all` - Copy complete conversation transcript
+- `/export md [filename]` - Export conversation to Markdown
+- `/export pdf [filename]` - Export conversation to PDF document
+- `/export html [filename]` - Export conversation to HTML
+- `/export json [filename]` - Export conversation to JSON
 
-### Review & Organize
-```
-/history    # Show last 10 messages
-/search foo # Find "foo" in history
-/list       # See all saved chats
-/load chat  # Restore old conversation
-```
+### Branching & Conversation Tree
+- `/retry` or `/alt` - Regenerate alternative response for last user turn
+- `/branch` - List and switch between conversation branches
+- `/tree` - Render visual ASCII conversation tree
 
----
+### Autonomous Agent & Developer Tools
+- `/agent <goal>` - Execute multi-step goal autonomously using tools
+- `/plan <requirement>` - Generate structured architectural plan
+- `/debug <error>` - Deep root-cause diagnostic & fix generation
+- `/doc <file>` - Generate documentation / README for code
+- `/search <text>` - Search in conversation history
+- `/stats` or `/analytics` - View token usage and estimated API cost
 
-## 🎭 Persona Quick Guide
+### Task Queue & Local Time Scheduler
+- `/queue add <task>` - Add task to background execution queue
+- `/queue list` - List tasks in queue
+- `/queue run` - Execute next task in queue
+- `/schedule at <HH:MM> <goal>` - Schedule work at specific local machine time
+- `/schedule in <duration> <goal>` - Schedule work after duration (e.g. 10m, 1h)
+- `/schedule list` - List scheduled jobs
 
-| Persona | Best For | Temp |
-|---------|----------|------|
-| **Developer** | Code & technical | 0.3 |
-| **Writer** | Stories & ideas | 0.8 |
-| **Teacher** | Learning | 0.5 |
-| **Analyst** | Data & insights | 0.4 |
-| **Debug** | Fixing issues | 0.2 |
-
----
-
-## 🌡️ Temperature Quick Guide
-
-| Temp | Usage | Example |
-|------|-------|---------|
-| 0.0 | Deterministic | `What is 2+2?` |
-| 0.3 | Technical | Code reviews |
-| 0.5 | Balanced | General questions |
-| 0.8 | Creative | Brainstorming |
-| 1.0 | Very random | Storytelling |
-
----
-
-## 📊 Reading Token Display
-
-```
-[Tokens: +234 prompt, +512 completion | Total: 746]
-         ↑              ↑                 ↑
-    Input tokens    Output tokens   Session total
-```
+### Sessions
+- `/save [filename]` - Save conversation session to JSON
+- `/load [filename]` - Load previously saved session
+- `/list` - List all saved sessions
+- `/history [N]` - Show last N messages
 
 ---
 
-## 💡 Pro Tips
-
-**Tip 1: Debug Mode**
-```
-/persona              # Select "Debug Assistant"
-/temp                 # Set to 0.2
-Paste your error...   # Get focused help
-```
-
-**Tip 2: Brainstorm Sessions**
-```
-/persona              # Select "Creative Writer"
-/temp                 # Set to 0.8+
-Generate ideas...     # More creative responses
-```
-
-**Tip 3: Work Smart**
-```
-/model                # Try different models
-/search keyword       # Find previous solutions
-/stats                # Monitor token usage
-/save                 # Archive completed work
-```
-
-**Tip 4: Resume Work**
-```
-/list                 # Find old session
-/load chat_name       # Bring it back
-Continue where you left off...
-```
-
----
-
-## ❌ Common Issues
-
-**Q: I don't see token counts**
-A: Make sure you're on v2.0+. Check with `/stats`
-
-**Q: How do I get cheaper responses?**
-A: Use `/model` and select `openrouter/free`
-
-**Q: Responses too random?**
-A: Use `/temp` and set a lower value (0.2-0.4)
-
-**Q: Can't find old chat?**
-A: Use `/list` to see all saved conversations
-
----
-
-## 🚀 Getting Started in 30 Seconds
+## 💻 CLI Flags (Non-Interactive)
 
 ```bash
-# 1. Set up (first time only)
-export OPENROUTER_API_KEY="your-key"
-
-# 2. Start
-go run .
-
-# 3. Try this:
-/persona           # Pick Developer
-/temp              # Set to 0.5
-What is Go?        # Ask something
-/save              # Save the chat
-/exit              # Done!
+shellsage --version               # Print version
+shellsage --config                # Launch configuration wizard
+shellsage --agent "<goal>"        # Autonomous agent mode
+shellsage --plan "<requirement>"  # Plan mode
+shellsage --debug "<error>"       # Debug mode
+shellsage --doc "<path>"          # Documentation generator
 ```
-
----
-
-**ShellSage v2.0** - Made for productive AI conversations! 🚀

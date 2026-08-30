@@ -3,6 +3,7 @@ module shellsage
 go 1.24.4
 
 require (
+	github.com/atotto/clipboard v0.1.4
 	github.com/fatih/color v1.17.0
 	github.com/joho/godotenv v1.5.1
 )
