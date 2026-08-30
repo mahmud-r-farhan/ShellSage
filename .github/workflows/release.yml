@@ -40,12 +40,16 @@ jobs:
         with:
           go-version: '1.24'
 
+      - name: Download Dependencies
+        run: go mod download
+
       - name: Compile Binary
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: 0
         run: |
+          mkdir -p dist
           go build -ldflags="-s -w -X main.Version=${{ github.ref_name }}" -o dist/${{ matrix.output }} .
 
       - name: Upload Binary Artifact

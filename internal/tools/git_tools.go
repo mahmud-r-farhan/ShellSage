@@ -74,4 +74,5 @@ func (r *ToolRegistry) registerDefaultTools() {
 	r.registerWebSearchTools()
 	r.registerWebScrapeTools()
 	r.registerGitTools()
+	r.registerSecurityTools()
 }

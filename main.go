@@ -22,6 +22,7 @@ import (
 	"shellsage/internal/persona"
 	"shellsage/internal/provider"
 	"shellsage/internal/scheduler"
+	"shellsage/internal/security"
 	"shellsage/internal/tools"
 	"shellsage/internal/tui"
 )
@@ -36,6 +37,7 @@ func main() {
 	planFlag := flag.String("plan", "", "Generate an implementation plan for a requirement and exit")
 	debugFlag := flag.String("debug", "", "Diagnose an error message or log file and exit")
 	docFlag := flag.String("doc", "", "Generate documentation for a specified file path and exit")
+	auditFlag := flag.String("audit", "", "Run security and vulnerability audit on target URL or codebase and exit")
 	flag.Parse()
 
 	if *versionFlag {
@@ -112,6 +114,10 @@ func main() {
 		} else {
 			fmt.Println(docs)
 		}
+		return
+	}
+	if *auditFlag != "" {
+		fmt.Print(security.RunFullAudit(ctx, *auditFlag))
 		return
 	}
 
@@ -341,6 +347,18 @@ func main() {
 
 			case "/schedule":
 				handleScheduleCommand(parts, taskScheduler)
+				continue
+
+			case "/sec":
+				handleSecCommand(ctx, parts)
+				continue
+
+			case "/audit":
+				target := "."
+				if len(parts) > 1 {
+					target = parts[1]
+				}
+				fmt.Print(security.RunFullAudit(ctx, target))
 				continue
 
 			case "/save":
@@ -742,4 +760,142 @@ func truncateString(s string, maxLen int) string {
 		return s[:maxLen] + "..."
 	}
 	return s
+}
+
+func handleSecCommand(ctx context.Context, parts []string) {
+	if len(parts) < 2 {
+		color.Yellow("Usage: /sec <headers|ssl|ports|sast|audit> [target]\n")
+		color.White("  /sec headers <url>      - Audit HTTP security headers & cookie flags\n")
+		color.White("  /sec ssl <domain>       - Inspect SSL/TLS certificate & cipher suite\n")
+		color.White("  /sec ports <host>       - Scan common dev & infrastructure service ports\n")
+		color.White("  /sec sast [path]        - Scan code for leaked secrets & vulnerabilities\n")
+		color.White("  /sec audit <target>     - Run full combined security posture audit\n")
+		return
+	}
+
+	sub := strings.ToLower(parts[1])
+	target := "."
+	if len(parts) > 2 {
+		target = parts[2]
+	}
+
+	switch sub {
+	case "headers":
+		if len(parts) < 3 {
+			color.Yellow("Usage: /sec headers <url>\nExample: /sec headers https://example.com\n")
+			return
+		}
+		color.Cyan("\n🌐 Auditing Security Headers for %s...\n\n", target)
+		res, err := security.AuditSecurityHeaders(ctx, target)
+		if err != nil {
+			color.Red("❌ Audit failed: %v\n", err)
+			return
+		}
+		color.Green("📊 Grade: %s  (Security Score: %d/100)\n\n", res.Grade, res.Score)
+		if len(res.PresentHeaders) > 0 {
+			color.White("  ✅ Present Security Headers:\n")
+			for k, v := range res.PresentHeaders {
+				color.HiGreen("     • %s: %s\n", k, truncateString(v, 60))
+			}
+		}
+		if len(res.MissingHeaders) > 0 {
+			color.White("\n  ⚠️  Missing Headers:\n")
+			for _, m := range res.MissingHeaders {
+				color.HiYellow("     • %s\n", m)
+			}
+		}
+		if len(res.Warnings) > 0 {
+			color.White("\n  ⚠️  Information Disclosure Warnings:\n")
+			for _, w := range res.Warnings {
+				color.HiRed("     • %s\n", w)
+			}
+		}
+		if len(res.Cookies) > 0 {
+			color.White("\n  🍪 Cookies Security Analysis:\n")
+			for _, c := range res.Cookies {
+				color.Cyan("     • %s\n", c)
+			}
+		}
+		fmt.Println()
+
+	case "ssl":
+		if len(parts) < 3 {
+			color.Yellow("Usage: /sec ssl <domain>\nExample: /sec ssl github.com\n")
+			return
+		}
+		color.Cyan("\n🔒 Inspecting SSL/TLS Certificate for %s...\n\n", target)
+		res, err := security.InspectSSLCertificate(target)
+		if err != nil {
+			color.Red("❌ Inspection failed: %v\n", err)
+			return
+		}
+		validTag := color.GreenString("VALID")
+		if !res.Valid {
+			validTag = color.RedString("INVALID / WARNING")
+		}
+		color.White("  Status:          %s\n", validTag)
+		color.White("  Subject:         %s\n", res.Subject)
+		color.White("  Issuer:          %s\n", res.Issuer)
+		color.White("  Protocol:        %s\n", res.TLSVersion)
+		color.White("  Cipher:          %s\n", res.CipherSuite)
+		color.White("  Validity:        %s to %s (%d days remaining)\n", res.NotBefore.Format("2006-01-02"), res.NotAfter.Format("2006-01-02"), res.DaysRemaining)
+		if len(res.Warnings) > 0 {
+			color.White("\n  ⚠️  Warnings:\n")
+			for _, w := range res.Warnings {
+				color.HiRed("     • %s\n", w)
+			}
+		}
+		fmt.Println()
+
+	case "ports":
+		if len(parts) < 3 {
+			target = "localhost"
+		}
+		color.Cyan("\n🔍 Auditing Common Service Ports for %s...\n\n", target)
+		ports := security.AuditPortConnectivity(target, nil)
+		openCount := 0
+		for _, p := range ports {
+			if p.IsOpen {
+				openCount++
+				color.HiGreen("  🟢 Port %-5d [%-24s] : OPEN  %s\n", p.Port, p.Service, p.Banner)
+			}
+		}
+		if openCount == 0 {
+			color.White("  🔒 No standard exposed ports detected.\n")
+		}
+		fmt.Println()
+
+	case "sast":
+		color.Cyan("\n🔍 Running SAST Vulnerability Code Scan on '%s'...\n\n", target)
+		res, err := security.ScanCodebase(target)
+		if err != nil {
+			color.Red("❌ SAST Scan failed: %v\n", err)
+			return
+		}
+		color.White("  Total Files Scanned: %d\n", res.TotalFiles)
+		if len(res.Findings) == 0 {
+			color.Green("  ✅ Clean! No leaked secrets or high-severity vulnerabilities found.\n")
+		} else {
+			color.Yellow("  ⚠️  Identified %d findings (Critical: %d, High: %d, Medium: %d):\n\n",
+				len(res.Findings), res.CriticalCount, res.HighCount, res.MediumCount)
+			for i, f := range res.Findings {
+				sevColor := color.HiYellowString
+				if f.Severity == "CRITICAL" || f.Severity == "HIGH" {
+					sevColor = color.HiRedString
+				}
+				color.White("  [%s] %s:%d\n    Issue: %s\n    Code:  %s\n    Fix:   %s\n\n",
+					sevColor(f.Severity), f.FilePath, f.LineNumber, f.Description, color.HiBlackString(f.Snippet), color.CyanString(f.Remediation))
+				if i >= 15 {
+					color.HiBlack("  ... and %d more findings\n", len(res.Findings)-15)
+					break
+				}
+			}
+		}
+
+	case "audit":
+		fmt.Print(security.RunFullAudit(ctx, target))
+
+	default:
+		color.Yellow("Unknown security command: %s (Options: headers, ssl, ports, sast, audit)\n", sub)
+	}
 }

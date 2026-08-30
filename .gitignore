@@ -10,9 +10,6 @@ shellsage.exe
 *.out
 *.exe
 
-# Dependency files
-go.sum
-
 # System files
 .DS_Store
 *.swp

@@ -7,61 +7,97 @@ import (
 	"github.com/fatih/color"
 )
 
-// PrintBanner outputs the premium ShellSage banner
+// PrintBanner outputs the premium ShellSage ASCII art banner
 func PrintBanner(providerName, modelName, personaName string) {
 	cyan := color.New(color.FgCyan, color.Bold)
-	white := color.New(color.FgHiWhite)
-	green := color.New(color.FgGreen)
+	magenta := color.New(color.FgMagenta, color.Bold)
+	green := color.New(color.FgGreen, color.Bold)
 	yellow := color.New(color.FgYellow)
+	white := color.New(color.FgHiWhite)
+	hiCyan := color.New(color.FgHiCyan)
+	dim := color.New(color.FgHiBlack)
 
-	cyan.Println("╔══════════════════════════════════════════════════════════════════╗")
-	cyan.Println("║               🚀  S H E L L S A G E   v3.0  🚀                   ║")
-	cyan.Println("║       The Autonomous AI Terminal Assistant for Developers        ║")
-	cyan.Println("╚══════════════════════════════════════════════════════════════════╝")
+	// ASCII Art Banner
+	magenta.Println()
+	cyan.Println(`  ███████╗██╗  ██╗███████╗██╗     ██╗     ███████╗ █████╗  ██████╗ ███████╗`)
+	cyan.Println(`  ██╔════╝██║  ██║██╔════╝██║     ██║     ██╔════╝██╔══██╗██╔════╝ ██╔════╝`)
+	cyan.Println(`  ███████╗███████║█████╗  ██║     ██║     ███████╗███████║██║  ███╗█████╗  `)
+	cyan.Println(`  ╚════██║██╔══██║██╔══╝  ██║     ██║     ╚════██║██╔══██║██║   ██║██╔══╝  `)
+	cyan.Println(`  ███████║██║  ██║███████╗███████╗███████╗███████║██║  ██║╚██████╔╝███████╗`)
+	cyan.Println(`  ╚══════╝╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝`)
+	dim.Println()
+	hiCyan.Printf("  %-66s\n", "Autonomous AI Developer Platform  ·  v3.0  ·  Open Source")
+	dim.Println("  " + strings.Repeat("─", 70))
 	fmt.Println()
 
-	green.Print("  ⚡ Provider: ")
-	white.Printf("%-18s ", providerName)
-	green.Print("🤖 Model: ")
-	yellow.Printf("%s\n", modelName)
+	// Info Row 1
+	green.Print("  ⚡ Provider  : ")
+	white.Printf("%-24s", providerName)
+	green.Print("  🤖 Model : ")
+	yellow.Println(modelName)
 
-	green.Print("  🎭 Persona:  ")
-	white.Printf("%-18s ", personaName)
-	green.Print("💡 Help:  ")
-	yellow.Println("Type /help for commands, /config to setup")
+	// Info Row 2
+	green.Print("  🎭 Persona   : ")
+	white.Printf("%-24s", personaName)
+	green.Print("  💡 Help  : ")
+	yellow.Println("/help  |  /config  |  /exit")
+
+	dim.Println("  " + strings.Repeat("─", 70))
 	fmt.Println()
 }
 
-// PrintHelp outputs the categorized extended command reference
+// PrintHelp outputs the full categorized command reference
 func PrintHelp() {
-	color.Cyan("\n📚 ━━━━━━━━━━━━ ShellSage Command Reference ━━━━━━━━━━━━\n\n")
+	dim := color.New(color.FgHiBlack)
+	dim.Println("\n" + strings.Repeat("─", 70))
+	color.HiCyan("  📚  ShellSage Command Reference\n")
+	dim.Println(strings.Repeat("─", 70))
 
 	categories := []struct {
 		Category string
 		Commands []struct{ Cmd, Desc string }
 	}{
 		{
-			Category: "🧠 Core & Navigation",
+			Category: "🧠 Core & Configuration",
 			Commands: []struct{ Cmd, Desc string }{
-				{"/help", "Show this interactive command guide"},
-				{"/config", "Launch interactive Configuration & Provider Setup Wizard"},
-				{"/provider", "Switch active LLM provider (OpenAI, Claude, Gemini, Groq, Ollama...)"},
-				{"/model", "Switch active model for current provider"},
-				{"/persona", "Switch persona or create a custom persona (/persona create)"},
-				{"/temp", "Adjust LLM temperature / creativity (0.0 - 1.0)"},
-				{"/clear", "Clear current conversation memory"},
-				{"/exit, /quit", "Save state and exit ShellSage"},
+				{"/help", "Show this command reference guide"},
+				{"/config", "Interactive provider & API key setup wizard"},
+				{"/provider", "Switch LLM provider (OpenAI, Claude, Gemini, Groq, Ollama...)"},
+				{"/model", "Switch model for the current provider"},
+				{"/persona", "Switch AI persona | /persona create  → Custom wizard"},
+				{"/temp", "Adjust creativity temperature (0.0 precise → 1.0 creative)"},
+				{"/clear", "Clear conversation memory and start a fresh session"},
+				{"/exit, /quit", "Auto-save session and exit ShellSage"},
+			},
+		},
+		{
+			Category: "🤖 Autonomous Agent & Developer Modes",
+			Commands: []struct{ Cmd, Desc string }{
+				{"/agent <goal>", "ReAct autonomous agent: filesystem, shell, web search & scrape"},
+				{"/plan <task>", "Generate structured architectural implementation plan"},
+				{"/debug <error>", "Deep root-cause diagnosis and automated patch generation"},
+				{"/doc <file>", "Generate comprehensive Markdown documentation for code file"},
+			},
+		},
+		{
+			Category: "🛡️  Security & Vulnerability Analysis",
+			Commands: []struct{ Cmd, Desc string }{
+				{"/sec headers <url>", "Audit HTTP security headers (HSTS, CSP, X-Frame-Options, cookies)"},
+				{"/sec ssl <domain>", "Inspect SSL/TLS certificate validity, expiry, and cipher suite"},
+				{"/sec ports <host>", "Scan common developer & infrastructure service ports"},
+				{"/sec sast [path]", "SAST code scan: leaked secrets, SQL injection, weak crypto"},
+				{"/sec audit <target>", "Run full security assessment: headers + SSL + SAST combined"},
 			},
 		},
 		{
 			Category: "📋 Clipboard & Export",
 			Commands: []struct{ Cmd, Desc string }{
-				{"/copy", "Copy last assistant response to OS clipboard"},
-				{"/copy code", "Extract and copy ONLY code blocks from last response"},
-				{"/copy all", "Copy entire active conversation transcript to clipboard"},
-				{"/export md [file]", "Export conversation to GitHub-Flavored Markdown"},
-				{"/export pdf [file]", "Export conversation to clean PDF report"},
-				{"/export html [file]", "Export conversation to dark-mode HTML file"},
+				{"/copy", "Copy last response to OS clipboard"},
+				{"/copy code", "Extract and copy only code blocks"},
+				{"/copy all", "Copy full conversation transcript"},
+				{"/export md [file]", "Export to GitHub-Flavored Markdown"},
+				{"/export pdf [file]", "Export to clean printable PDF"},
+				{"/export html [file]", "Export to dark-theme HTML file"},
 			},
 		},
 		{
@@ -69,54 +105,50 @@ func PrintHelp() {
 			Commands: []struct{ Cmd, Desc string }{
 				{"/retry, /alt", "Generate an alternative response for the last turn"},
 				{"/branch", "List and switch between conversation branches"},
-				{"/tree", "Render visual ASCII conversation tree"},
+				{"/tree", "Render ASCII conversation tree map"},
 			},
 		},
 		{
-			Category: "🤖 Autonomous Agent & Developer Tools",
+			Category: "⏰ Task Queue & Scheduler",
 			Commands: []struct{ Cmd, Desc string }{
-				{"/agent <goal>", "Execute goal autonomously with local tools & web search"},
-				{"/plan <task>", "Generate comprehensive architectural implementation plan"},
-				{"/debug <error>", "Perform deep root-cause diagnosis & generate fix"},
-				{"/doc <file>", "Generate comprehensive documentation / README for code"},
-				{"/search <text>", "Search through conversation history"},
-				{"/stats, /analytics", "Display token consumption, costs, and session metrics"},
+				{"/queue add <task>", "Add a task to the background execution queue"},
+				{"/queue list", "List all queued tasks and their status"},
+				{"/queue run", "Execute the next pending task"},
+				{"/schedule at <HH:MM> <task>", "Run task at exact local machine time"},
+				{"/schedule in <dur> <task>", "Run task after relative delay (e.g. 30m, 2h)"},
+				{"/schedule list", "List scheduled jobs"},
 			},
 		},
 		{
-			Category: "⏰ Task Queue & Local Time Scheduler",
+			Category: "💾 History, Analytics & Sessions",
 			Commands: []struct{ Cmd, Desc string }{
-				{"/queue add <task>", "Add a task to background execution queue"},
-				{"/queue list", "List all tasks in the queue"},
-				{"/queue run", "Execute next pending task in queue"},
-				{"/schedule at <HH:MM> <task>", "Schedule task at local machine time (e.g. 15:30)"},
-				{"/schedule in <duration> <task>", "Schedule task in relative time (e.g. 10m, 1h)"},
-				{"/schedule list", "List all scheduled jobs"},
-			},
-		},
-		{
-			Category: "💾 History & Sessions",
-			Commands: []struct{ Cmd, Desc string }{
-				{"/save [filename]", "Save current conversation session to file"},
-				{"/load [filename]", "Load a previously saved session"},
+				{"/save [filename]", "Save conversation session to file"},
+				{"/load [filename]", "Load a saved session"},
 				{"/list", "List all saved conversation files"},
-				{"/history [N]", "Display the last N messages"},
+				{"/history [N]", "Show last N messages"},
+				{"/search <term>", "Search through conversation history"},
+				{"/stats, /analytics", "Token usage, cost estimate, and session metrics"},
 			},
 		},
 	}
 
 	for _, cat := range categories {
-		color.Green("  " + cat.Category + "\n")
-		for _, cmd := range cat.Commands {
-			color.Cyan(fmt.Sprintf("    %-30s", cmd.Cmd))
-			color.White(" - " + cmd.Desc + "\n")
-		}
 		fmt.Println()
+		color.New(color.FgGreen, color.Bold).Printf("  %s\n", cat.Category)
+		for _, cmd := range cat.Commands {
+			color.HiCyan(fmt.Sprintf("    %-32s", cmd.Cmd))
+			color.White("  %s\n", cmd.Desc)
+		}
 	}
-	color.Cyan("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
+
+	fmt.Println()
+	dim.Println(strings.Repeat("─", 70))
+	color.HiBlack("  CLI Flags: --agent  --plan  --debug  --doc  --config  --version\n")
+	dim.Println(strings.Repeat("─", 70))
+	fmt.Println()
 }
 
 // PrintSeparator outputs a stylish divider line
 func PrintSeparator() {
-	color.HiBlack(strings.Repeat("─", 65) + "\n")
+	color.HiBlack(strings.Repeat("─", 70) + "\n")
 }

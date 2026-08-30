@@ -26,6 +26,9 @@ jobs:
           go-version: ${{ matrix.go }}
           cache: true
 
+      - name: Download Dependencies
+        run: go mod download
+
       - name: Verify Dependencies
         run: go mod verify
 
