@@ -4,13 +4,14 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
   build-release:
-    name: Build & Release Binaries
+    name: Build Binary for ${{ matrix.goos }}/${{ matrix.goarch }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -39,6 +40,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.24'
+          cache: true
 
       - name: Download Dependencies
         run: go mod download
@@ -50,7 +52,11 @@ jobs:
           CGO_ENABLED: 0
         run: |
           mkdir -p dist
-          go build -ldflags="-s -w -X main.Version=${{ github.ref_name }}" -o dist/${{ matrix.output }} .
+          VERSION="${{ github.ref_name }}"
+          if [ -z "$VERSION" ] || [ "$VERSION" = "main" ]; then
+            VERSION="v3.0.0"
+          fi
+          go build -ldflags="-s -w -X main.Version=${VERSION}" -o dist/${{ matrix.output }} .
 
       - name: Upload Binary Artifact
         uses: actions/upload-artifact@v4
@@ -72,8 +78,48 @@ jobs:
           path: dist/
           merge-multiple: true
 
+      - name: Generate Checksums
+        working-directory: dist
+        run: |
+          sha256sum * > SHA256SUMS.txt
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*
+          name: "ShellSage ${{ github.ref_name }} - Autonomous AI Developer & Security CLI"
+          files: |
+            dist/*
+            dist/SHA256SUMS.txt
           generate_release_notes: true
+          body: |
+            # 🚀 ShellSage v3.0.0 - Official Release
+
+            Welcome to the next generation of **ShellSage** — The Autonomous AI Terminal Assistant & Developer Platform.
+
+            ---
+
+            ### 📦 Included Cross-Platform Binaries
+            - **Linux (x86_64 / amd64)**: `shellsage-linux-amd64`
+            - **Linux (ARM64)**: `shellsage-linux-arm64`
+            - **macOS (Apple Silicon M1/M2/M3/M4 / arm64)**: `shellsage-darwin-arm64`
+            - **macOS (Intel / amd64)**: `shellsage-darwin-amd64`
+            - **Windows (x86_64 / amd64)**: `shellsage-windows-amd64.exe`
+            - **Checksums**: `SHA256SUMS.txt`
+
+            ---
+
+            ### 🌟 Key Highlights & Capabilities
+            1. **Universal Multi-Provider Engine**: Direct streaming support for OpenRouter, OpenAI, Anthropic Claude, Google Gemini, Groq Cloud, DeepSeek, Ollama (Local LLMs), and Custom endpoints.
+            2. **Interactive TUI & Setup Wizard**: `/config` and `--config` interactive terminal menus.
+            3. **Ethical Defensive Security & Vulnerability Audit Suite**:
+               - `/sec headers <url>`: HTTP Security Headers & Cookie Auditor (HSTS, CSP, X-Frame-Options, etc.).
+               - `/sec ssl <domain>`: Live SSL/TLS Certificate Validator & Expiry Checker.
+               - `/sec sast [path]`: Static Application Security Testing (SAST) for leaked keys, tokens, and SQL injections.
+               - `/sec ports <host>`: Safe service port availability scanner.
+               - `/sec audit <target>` / `/audit`: Complete unified security assessment.
+            4. **Autonomous ReAct Agent & Tools**: Autonomous goal execution with local filesystem operations, shell execution, live web search, and web scraping.
+            5. **Developer Modes**: Architectural Planning (`/plan`), Root-Cause Diagnostics (`/debug`), and Documentation Generator (`/doc`).
+            6. **Conversation Tree & Branching**: Fork chats and explore alternative AI completions (`/retry`, `/alt`, `/branch`, `/tree`).
+            7. **Task Queue & Local Time-Based Scheduler**: Background task queue (`/queue`) and local machine clock scheduler (`/schedule at <HH:MM>`).
+            8. **Native Clipboard & Exporters**: `/copy` (last response / code-only / all) and multi-format exporters (Markdown, printable PDF, dark-themed HTML, JSON).
+            9. **Docker & CI/CD**: Ready-to-use `Dockerfile` and `docker-compose.yml`.
