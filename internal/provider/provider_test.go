@@ -64,6 +64,85 @@ func TestOpenAICompatibleProviderChat(t *testing.T) {
 	}
 }
 
+func TestGroqProviderChatAndStream(t *testing.T) {
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/chat/completions" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		if r.Header.Get("Authorization") != "Bearer gsk-test-key" {
+			t.Errorf("missing or invalid Groq authorization header")
+		}
+
+		if r.Header.Get("Accept") == "text/event-stream" {
+			w.Header().Set("Content-Type", "text/event-stream")
+			_, _ = w.Write([]byte("data: {\"model\":\"llama-3.3-70b-versatile\",\"choices\":[{\"delta\":{\"content\":\"Groq \"}}]}\n\n"))
+			_, _ = w.Write([]byte("data: {\"model\":\"llama-3.3-70b-versatile\",\"choices\":[{\"delta\":{\"content\":\"fast!\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":12,\"completion_tokens\":2,\"total_tokens\":14}}\n\n"))
+			_, _ = w.Write([]byte("data: [DONE]\n\n"))
+			return
+		}
+
+		resp := map[string]interface{}{
+			"id":    "chatcmpl-groq-123",
+			"model": "llama-3.3-70b-versatile",
+			"choices": []map[string]interface{}{
+				{
+					"index": 0,
+					"message": map[string]string{
+						"role":    "assistant",
+						"content": "Hello from Groq Cloud!",
+					},
+					"finish_reason": "stop",
+				},
+			},
+			"usage": map[string]int{
+				"prompt_tokens":     10,
+				"completion_tokens": 5,
+				"total_tokens":      15,
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer mockServer.Close()
+
+	p, err := New(Selection{ID: "groq", APIKey: "gsk-test-key", BaseURL: mockServer.URL, Model: "llama-3.3-70b-versatile"})
+	if err != nil {
+		t.Fatalf("factory error for Groq: %v", err)
+	}
+	if p.Name() != "Groq Cloud" {
+		t.Errorf("expected provider name 'Groq Cloud', got %q", p.Name())
+	}
+
+	// Test Chat
+	resp, err := p.Chat(context.Background(), &ChatRequest{
+		Messages: []Message{{Role: "user", Content: "Hello"}},
+	})
+	if err != nil {
+		t.Fatalf("unexpected Groq Chat error: %v", err)
+	}
+	if resp.Content != "Hello from Groq Cloud!" {
+		t.Errorf("unexpected Groq content: %s", resp.Content)
+	}
+
+	// Test Stream
+	var streamBuf string
+	streamResp, err := p.Stream(context.Background(), &ChatRequest{
+		Messages: []Message{{Role: "user", Content: "Stream test"}},
+	}, func(chunk string) error {
+		streamBuf += chunk
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("unexpected Groq Stream error: %v", err)
+	}
+	if streamBuf != "Groq fast!" {
+		t.Errorf("expected streamed buffer 'Groq fast!', got %q", streamBuf)
+	}
+	if streamResp.Usage.TotalTokens != 14 {
+		t.Errorf("expected total tokens 14, got %d", streamResp.Usage.TotalTokens)
+	}
+}
+
 func TestEstimateUsage(t *testing.T) {
 	messages := []Message{
 		{Role: "user", Content: "Hello world this is a test"},

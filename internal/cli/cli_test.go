@@ -98,13 +98,13 @@ func TestEnvelopeRoundTrip(t *testing.T) {
 }
 
 func TestCompletionScripts(t *testing.T) {
-	for _, shell := range []string{"bash", "zsh", "fish"} {
+	for _, shell := range []string{"bash", "zsh", "fish", "powershell", "pwsh"} {
 		code := runCompletion([]string{shell})
 		if code != 0 {
 			t.Errorf("completion %s exit %d", shell, code)
 		}
 	}
-	if code := runCompletion([]string{"powershell"}); code != 2 {
+	if code := runCompletion([]string{"unknownshell"}); code != 2 {
 		t.Error("unknown shell should exit 2")
 	}
 }

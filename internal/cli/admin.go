@@ -885,7 +885,7 @@ func runCompletion(args []string) int {
       models)   COMPREPLY=( $(compgen -W "list use" -- "$cur") ) ;;
       sessions) COMPREPLY=( $(compgen -W "list delete rename load" -- "$cur") ) ;;
       sec)      COMPREPLY=( $(compgen -W "headers ssl ports sast audit" -- "$cur") ) ;;
-      completion) COMPREPLY=( $(compgen -W "bash zsh" -- "$cur") ) ;;
+      completion) COMPREPLY=( $(compgen -W "bash zsh powershell pwsh fish" -- "$cur") ) ;;
       *)        COMPREPLY=( $(compgen -W "--json --quiet --yes --provider --model --stream --temp --steps --timeout --image --file" -- "$cur") ) ;;
     esac
   fi
@@ -918,8 +918,17 @@ compdef _shellsage shellsage
 		for _, c := range Commands {
 			fmt.Printf("complete -c shellsage -n __fish_use_subcommand -a %s\n", c)
 		}
+	case "powershell", "pwsh", "ps1":
+		fmt.Printf(`Register-ArgumentCompleter -Native -CommandName shellsage -ScriptBlock {
+    param($wordToComplete, $commandAst, $cursorPosition)
+    $subcommands = @("%s")
+    $subcommands | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
+        [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
+    }
+}
+`, strings.Join(Commands, `", "`))
 	default:
-		color.Red("Unknown shell %q (bash|zsh|fish)", shell)
+		color.Red("Unknown shell %q (bash|zsh|fish|powershell)", shell)
 		return 2
 	}
 	return 0
