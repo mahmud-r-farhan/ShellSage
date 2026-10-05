@@ -2,13 +2,28 @@ name: CI Test Suite
 
 on:
   push:
-    branches: [ main, master, 'feat/**', 'fix/**' ]
+    branches: [ main, master, 'feat/**', 'fix/**', 'arena/**' ]
   pull_request:
     branches: [ main, master ]
+  workflow_dispatch:
+    inputs:
+      go_version:
+        description: 'Go version override'
+        required: false
+        default: '1.24'
+      race:
+        description: 'Run with -race'
+        required: false
+        default: 'true'
+        type: choice
+        options: ['true', 'false']
 
 jobs:
   test:
     name: Test on ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -23,7 +38,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ matrix.go }}
+          go-version: ${{ github.event.inputs.go_version || matrix.go }}
           cache: true
 
       - name: Download Dependencies
@@ -35,8 +50,12 @@ jobs:
       - name: Run Go Vet
         run: go vet ./...
 
-      - name: Run Unit Tests
-        run: go test -v -race ./...
+      - name: Run GoFmt check
+        run: |
+          unformatted=$(gofmt -l . | grep -v '^$' || true)
+          if [ -n "$unformatted" ]; then echo "gofmt needed:"; echo "$unformatted"; exit 1; fi
 
+      - name: Run Unit Tests
+        run: go test -v $([ "${{ github.event.inputs.race || 'true' }}" = "true" ] && echo "-race") ./...
       - name: Build Binary
         run: go build -v -o shellsage .

@@ -48,6 +48,7 @@ func (r *ToolRegistry) registerFSTools() {
 	// Write File
 	r.Register(ToolDef{
 		Name:        "write_file",
+		Risk:        RiskWrite,
 		Description: "Writes or overwrites content to a specified file path",
 		Parameters: map[string]interface{}{
 			"type": "object",
@@ -82,6 +83,7 @@ func (r *ToolRegistry) registerFSTools() {
 	// Edit File (Find and Replace)
 	r.Register(ToolDef{
 		Name:        "edit_file",
+		Risk:        RiskWrite,
 		Description: "Replaces target content with replacement text in a file",
 		Parameters: map[string]interface{}{
 			"type": "object",
@@ -156,6 +158,78 @@ func (r *ToolRegistry) registerFSTools() {
 			}
 
 			return sb.String(), nil
+		},
+	})
+
+	// Search Code (Grep)
+	r.Register(ToolDef{
+		Name:        "find_files",
+		Description: "Finds files whose names match a glob pattern (e.g. '*.go', 'config*.json') anywhere under a directory. Much faster than grep when you only need paths.",
+		Parameters: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"pattern": map[string]interface{}{"type": "string", "description": "Glob pattern or substring matched case-insensitively against file names"},
+				"path":    map[string]interface{}{"type": "string", "description": "Root directory (default: '.')"},
+				"limit":   map[string]interface{}{"type": "integer", "description": "Max results (default 200)"},
+			},
+			"required": []string{"pattern"},
+		},
+		Handler: func(ctx context.Context, args map[string]interface{}) (string, error) {
+			pattern, _ := args["pattern"].(string)
+			if pattern == "" {
+				pattern, _ = args["input"].(string)
+			}
+			if pattern == "" {
+				return "", fmt.Errorf("missing 'pattern' argument")
+			}
+			root, _ := args["path"].(string)
+			if root == "" {
+				root = "."
+			}
+			limit := 200
+			if v, ok := args["limit"].(float64); ok && v > 0 {
+				limit = int(v)
+			}
+
+			hasGlob := strings.ContainsAny(pattern, "*?[")
+			patLower := strings.ToLower(pattern)
+			var found []string
+
+			err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+				if err != nil {
+					return nil
+				}
+				if d.IsDir() {
+					name := d.Name()
+					if name == ".git" || name == "node_modules" || name == "vendor" || name == ".venv" || name == "__pycache__" || name == "dist" || name == "build" {
+						return fs.SkipDir
+					}
+					return nil
+				}
+				name := d.Name()
+				match := false
+				if hasGlob {
+					if ok, _ := filepath.Match(patLower, strings.ToLower(name)); ok {
+						match = true
+					}
+				} else if strings.Contains(strings.ToLower(name), patLower) {
+					match = true
+				}
+				if match {
+					found = append(found, path)
+					if len(found) >= limit {
+						return fs.SkipAll
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				return "", fmt.Errorf("error during find: %w", err)
+			}
+			if len(found) == 0 {
+				return fmt.Sprintf("No files matching '%s' under %s", pattern, root), nil
+			}
+			return fmt.Sprintf("Found %d file(s) matching '%s':\n%s", len(found), pattern, strings.Join(found, "\n")), nil
 		},
 	})
 

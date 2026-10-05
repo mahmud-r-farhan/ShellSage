@@ -1,0 +1,11 @@
+# Normalize line endings: Go sources (and all text) are LF in the worktree too,
+# so `gofmt -l` behaves identically on the windows-latest CI runner.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.gz binary
+*.zip binary

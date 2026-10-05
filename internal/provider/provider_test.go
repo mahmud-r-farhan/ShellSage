@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func TestOpenAICompatibleProviderChat(t *testing.T) {
@@ -41,7 +43,10 @@ func TestOpenAICompatibleProviderChat(t *testing.T) {
 	}))
 	defer mockServer.Close()
 
-	p := NewOpenAIProvider("test-key", mockServer.URL, "gpt-4o-mini")
+	p, err := New(Selection{ID: "openai", APIKey: "test-key", BaseURL: mockServer.URL, Model: "gpt-4o-mini"})
+	if err != nil {
+		t.Fatalf("factory error: %v", err)
+	}
 	resp, err := p.Chat(context.Background(), &ChatRequest{
 		Messages: []Message{
 			{Role: "user", Content: "Hi"},
@@ -68,5 +73,129 @@ func TestEstimateUsage(t *testing.T) {
 	usage := EstimateUsage(messages, response)
 	if usage.PromptTokens == 0 || usage.CompletionTokens == 0 || usage.TotalTokens == 0 {
 		t.Errorf("token estimation failed, got %+v", usage)
+	}
+}
+
+func TestMultimodalRequestPayload(t *testing.T) {
+	var gotBody map[string]interface{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"choices": []map[string]interface{}{
+				{"message": map[string]string{"role": "assistant", "content": "ok"}, "finish_reason": "stop"},
+			},
+		})
+	}))
+	defer srv.Close()
+
+	base := NewBaseProvider("Test", "k", srv.URL, "m", nil, nil)
+	_, err := base.Chat(context.Background(), &ChatRequest{
+		Messages: []Message{
+			{Role: "user", Content: "what is in this image?", Images: []string{"data:image/png;base64,AAAA"}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("chat failed: %v", err)
+	}
+
+	msgs, _ := gotBody["messages"].([]interface{})
+	if len(msgs) != 1 {
+		t.Fatalf("expected 1 message, got %d", len(msgs))
+	}
+	content, _ := msgs[0].(map[string]interface{})["content"]
+	parts, ok := content.([]interface{})
+	if !ok || len(parts) != 2 {
+		t.Fatalf("expected multimodal content parts, got %#v", content)
+	}
+	first := parts[0].(map[string]interface{})
+	if first["type"] != "text" || first["text"] != "what is in this image?" {
+		t.Errorf("unexpected text part: %#v", first)
+	}
+	second := parts[1].(map[string]interface{})
+	iu, _ := second["image_url"].(map[string]interface{})
+	if iu == nil || iu["url"] != "data:image/png;base64,AAAA" {
+		t.Errorf("unexpected image part: %#v", second)
+	}
+}
+
+func TestRetryOn429ThenSuccess(t *testing.T) {
+	var hits int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n := atomic.AddInt32(&hits, 1)
+		if n < 3 {
+			w.Header().Set("Retry-After", "0")
+			w.WriteHeader(http.StatusTooManyRequests)
+			_, _ = w.Write([]byte(`{"error":{"message":"rate limited"}}`))
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"choices": []map[string]interface{}{
+				{"message": map[string]string{"role": "assistant", "content": "recovered"}, "finish_reason": "stop"},
+			},
+		})
+	}))
+	defer srv.Close()
+
+	base := NewBaseProvider("Test", "k", srv.URL, "m", nil, nil)
+	base.httpClient = srv.Client() // keep same transport; timeout still client-managed
+
+	done := make(chan *ChatResponse, 1)
+	errCh := make(chan error, 1)
+	go func() {
+		resp, err := base.Chat(context.Background(), &ChatRequest{Messages: []Message{{Role: "user", Content: "hi"}}})
+		if err != nil {
+			errCh <- err
+			return
+		}
+		done <- resp
+	}()
+
+	select {
+	case resp := <-done:
+		if resp.Content != "recovered" {
+			t.Errorf("expected recovered content, got %q", resp.Content)
+		}
+		if got := atomic.LoadInt32(&hits); got != 3 {
+			t.Errorf("expected 3 attempts, got %d", got)
+		}
+	case err := <-errCh:
+		t.Fatalf("retry did not recover: %v", err)
+	case <-time.After(20 * time.Second):
+		t.Fatal("timed out waiting for retries")
+	}
+}
+
+func TestAzureAuthStyleUsesAPIKeyHeader(t *testing.T) {
+	var got string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = r.Header.Get("api-key")
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"choices": []map[string]interface{}{
+				{"message": map[string]string{"role": "assistant", "content": "hi"}, "finish_reason": "stop"},
+			},
+		})
+	}))
+	defer srv.Close()
+
+	base := NewBaseProvider("Azure", "secret-key", srv.URL, "dep1", nil, nil)
+	base.SetAuthStyle("api-key")
+	if _, err := base.Chat(context.Background(), &ChatRequest{Messages: []Message{{Role: "user", Content: "x"}}}); err != nil {
+		t.Fatalf("chat: %v", err)
+	}
+	if got != "secret-key" {
+		t.Errorf("expected api-key header, got %q", got)
+	}
+}
+
+func TestUnknownProviderError(t *testing.T) {
+	_, err := New(Selection{ID: "nope"})
+	if err == nil {
+		t.Fatal("expected error for unknown provider")
+	}
+	if _, ok := err.(*UnknownProviderError); !ok {
+		t.Errorf("expected *UnknownProviderError, got %T: %v", err, err)
 	}
 }

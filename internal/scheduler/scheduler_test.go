@@ -12,7 +12,7 @@ import (
 
 type mockTestProvider struct{}
 
-func (m *mockTestProvider) Name() string { return "mock" }
+func (m *mockTestProvider) Name() string                  { return "mock" }
 func (m *mockTestProvider) ListAvailableModels() []string { return []string{"m"} }
 func (m *mockTestProvider) Chat(ctx context.Context, req *provider.ChatRequest) (*provider.ChatResponse, error) {
 	return &provider.ChatResponse{

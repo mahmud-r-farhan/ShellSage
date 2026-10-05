@@ -2,7 +2,7 @@
 
 # Default target
 help:
-	@echo "ShellSage v3.0 - Makefile Commands"
+	@echo "ShellSage v4.0 - Makefile Commands"
 	@echo "======================================"
 	@echo ""
 	@echo "Available commands:"
@@ -26,7 +26,7 @@ setup:
 	@echo "✅ Setup complete!"
 
 build:
-	@echo "🔨 Building ShellSage v3.0..."
+	@echo "🔨 Building ShellSage v4.0..."
 	go build -ldflags="-s -w" -o shellsage .
 	@echo "✅ Build complete: ./shellsage"
 
@@ -51,8 +51,14 @@ lint:
 
 fmt:
 	@echo "✨ Formatting code..."
-	go fmt ./...
+	gofmt -l -w .
 	@echo "✅ Formatting complete!"
+
+cover:
+	@echo "🧪 Coverage report..."
+	go test -coverprofile=coverage.out ./...
+	go tool cover -func=coverage.out | tail -1
+	@echo "✅ Done (coverage.out for HTML view: go tool cover -html=coverage.out)"
 
 docker-build:
 	@echo "🐳 Building Docker image shellsage:latest..."
@@ -75,4 +81,5 @@ install: build
 	@echo "✅ Installation complete!"
 
 check: fmt lint test
+	@echo ""
 	@echo "✅ All checks passed successfully!"

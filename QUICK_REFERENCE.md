@@ -1,4 +1,4 @@
-# 📖 ShellSage Quick Reference (Cheatsheet)
+# 📖 ShellSage v4.0 Quick Reference (Cheatsheet)
 
 ## ⌨️ Command Cheatsheet
 
@@ -50,13 +50,37 @@
 
 ---
 
-## 💻 CLI Flags (Non-Interactive)
+## 💻 CLI Subcommands (Non-Interactive)
 
 ```bash
-shellsage --version               # Print version
-shellsage --config                # Launch configuration wizard
-shellsage --agent "<goal>"        # Autonomous agent mode
-shellsage --plan "<requirement>"  # Plan mode
-shellsage --debug "<error>"       # Debug mode
-shellsage --doc "<path>"          # Documentation generator
+shellsage ask "<prompt>"           # one-shot chat; '-' or a pipe reads stdin
+shellsage agent "<goal>"           # autonomous run (approval gate; --yes to auto-allow)
+shellsage plan "<requirement>"     # architecture plan
+shellsage debug "<error|stack>"    # root-cause diagnosis (pastes fine)
+shellsage doc "<path>"             # markdown docs for a file
+shellsage audit [path|url]        # combined security posture audit
+shellsage sec <headers|ssl|ports|sast|audit> <target> [--json]
+shellsage provider list|use <id>|show
+shellsage models list [--remote] | use <id>
+shellsage config show|path|set <provider>.<field>=<value>
+shellsage sessions list|delete|rename|load
+shellsage doctor                   # env health (exit code reflects problems)
+shellsage completion <bash|zsh|fish>
+# pipes & scripting
+go test ./... 2>&1 | shellsage ask - --json | jq -r .content
+shellsage agent --yes --log-file run.jsonl "bump CI actions to latest"
+# legacy v3 flags still work: --agent/--plan/--debug/--doc/--audit/--config/--version
 ```
+
+## 🔌 Providers (20) — all configured as `<PREFIX>_API_KEY`
+openrouter · openai · anthropic · gemini · groq · deepseek · mistral · xai · together ·
+fireworks · cerebras · nvidia · github · huggingface · perplexity · deepinfra · cohere ·
+azure · ollama · custom — plus `<PREFIX>_MODEL` / `<PREFIX>_BASE_URL` overrides.
+
+## 🆕 v4 REPL additions
+- `/compress` — fold old turns into an AI summary (context budget: `max_context_tokens`)
+- `/image <file|url>` — attach screenshot/diagram to your next message (vision)
+- `/approve <ask|yolo|read-only>` — agent autonomy dial
+- `/tools` — tool inventory with risk classes · `/models` — quick list
+- `/resume` · `/rename` · `/delete` — sessions in `~/.shellsage/conversations`
+- `/schedule daily 09:00 <goal>` · `/schedule cancel <id>` — persisted timer jobs

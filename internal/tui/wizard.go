@@ -7,6 +7,7 @@ import (
 
 	"github.com/fatih/color"
 	"shellsage/internal/config"
+	"shellsage/internal/provider"
 )
 
 // RunConfigWizard guides the user through setting up providers, keys, and defaults
@@ -21,8 +22,9 @@ func RunConfigWizard(cfg *config.Config) error {
 
 	pCfg := cfg.Providers[selectedProvider]
 
-	// Step 2: Configure API Key for Active Provider (skip for Ollama if not needed)
-	if selectedProvider != config.ProviderOllama {
+	// Step 2: Configure API Key for Active Provider (skipped for local providers)
+	desc, _ := provider.ByID(string(selectedProvider))
+	if desc.RequiresKey {
 		maskedKey := "(Not configured)"
 		if len(pCfg.APIKey) > 8 {
 			maskedKey = pCfg.APIKey[:4] + "..." + pCfg.APIKey[len(pCfg.APIKey)-4:]
@@ -79,5 +81,36 @@ func RunConfigWizard(cfg *config.Config) error {
 	}
 
 	color.Green("\n✅ Configuration successfully saved to %s!\n\n", cfg.ConfigPath)
+
+	// Optional: configure API keys for other providers (multi-provider failover
+	// is a core v4 real-world workflow: /provider switch instantly without re-setup).
+	for {
+		color.Cyan("Configure another provider's key? [y/N]: ")
+		line, _ := reader.ReadString('\n')
+		if !strings.EqualFold(strings.TrimSpace(line), "y") {
+			break
+		}
+		other := SelectProviderMenu(cfg.ActiveProvider)
+		pOther := cfg.Providers[other]
+		color.White("\n🔑 API Key for %s [Current: %s]:\n", other, config.MaskKey(pOther.APIKey))
+		color.Cyan("Enter new API Key (or press Enter to keep current): ")
+		keyInput, _ := reader.ReadString('\n')
+		keyInput = strings.TrimSpace(keyInput)
+		if keyInput != "" {
+			pOther.APIKey = keyInput
+			cfg.Providers[other] = pOther
+		}
+		color.White("\n🤖 Default Model for %s [Current: %s] (Enter keeps): ", other, pOther.Model)
+		modelInput, _ := reader.ReadString('\n')
+		if m := strings.TrimSpace(modelInput); m != "" {
+			pOther.Model = m
+			cfg.Providers[other] = pOther
+		}
+		if err := cfg.Save(); err != nil {
+			color.Red("❌ Failed to save configuration: %v\n", err)
+			return err
+		}
+		color.Green("✅ Saved configuration for %s.\n", other)
+	}
 	return nil
 }

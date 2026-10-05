@@ -2,8 +2,11 @@ package security
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
+	"io"
 	"io/fs"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -23,9 +26,9 @@ type VulnerabilityFinding struct {
 
 // SASTAuditResult represents the complete codebase scan report
 type SASTAuditResult struct {
-	ScannedPath  string                 `json:"scanned_path"`
-	TotalFiles   int                    `json:"total_files"`
-	Findings     []VulnerabilityFinding `json:"findings"`
+	ScannedPath   string                 `json:"scanned_path"`
+	TotalFiles    int                    `json:"total_files"`
+	Findings      []VulnerabilityFinding `json:"findings"`
 	CriticalCount int                    `json:"critical_count"`
 	HighCount     int                    `json:"high_count"`
 	MediumCount   int                    `json:"medium_count"`
@@ -38,6 +41,19 @@ type sastRule struct {
 	Description string
 	Pattern     *regexp.Regexp
 	Remediation string
+	// Guard optionally vetoes a match (used to reduce false positives).
+	Guard func(line string) bool
+}
+
+var reGenericSecretValue = regexp.MustCompile(`["']([A-Za-z0-9_\-\./+=]{12,})["']`)
+
+func genericSecretGuard(line string) bool {
+	for _, m := range reGenericSecretValue.FindAllStringSubmatch(line, -1) {
+		if looksLikeRealSecret(m[1]) {
+			return true
+		}
+	}
+	return false
 }
 
 var sastRules = []sastRule{
@@ -61,6 +77,7 @@ var sastRules = []sastRule{
 		Description: "Potential hardcoded API Secret or Token",
 		Pattern:     regexp.MustCompile(`(?i)(?:api_key|apikey|secret_key|private_key|token|auth_token)\s*[:=]\s*["'][A-Za-z0-9_\-\.]{12,}["']`),
 		Remediation: "Extract secret values to .env configuration files and ensure .env is git-ignored.",
+		Guard:       genericSecretGuard,
 	},
 	{
 		ID:          "SEC-SECRET-PRIVATE-KEY",
@@ -97,6 +114,80 @@ var sastRules = []sastRule{
 		Pattern:     regexp.MustCompile(`(?i)(?:jwt\.SigningMethodNone|"alg"\s*:\s*"none")`),
 		Remediation: "Enforce explicit cryptographic signing algorithms (e.g. Ed25519, RS256, HS256).",
 	},
+	{
+		ID:          "SEC-SECRET-GITHUB",
+		Severity:    "CRITICAL",
+		Description: "Hardcoded GitHub token detected (classic or fine-grained PAT / OAuth)",
+		Pattern:     regexp.MustCompile(`(?:ghp_[0-9A-Za-z]{36}|github_pat_[0-9A-Za-z_]{60,}|gho_[0-9A-Za-z]{36}|ghs_[0-9A-Za-z]{36}|ghu_[0-9A-Za-z]{36})`),
+		Remediation: "Revoke the token at github.com/settings/tokens; use `gh auth` or CI OIDC federation instead.",
+	},
+	{
+		ID:          "SEC-SECRET-SLACK",
+		Severity:    "HIGH",
+		Description: "Hardcoded Slack API/bot token detected",
+		Pattern:     regexp.MustCompile(`xox[baprs]-[0-9A-Za-z-]{10,}`),
+		Remediation: "Revoke in the Slack app console and move the token to a secret manager.",
+	},
+	{
+		ID:          "SEC-SECRET-STRIPE",
+		Severity:    "CRITICAL",
+		Description: "Hardcoded Stripe secret key detected",
+		Pattern:     regexp.MustCompile(`(?:sk|rk)_live_[0-9A-Za-z]{16,}`),
+		Remediation: "Roll the key in the Stripe dashboard immediately; live keys must never be committed.",
+	},
+	{
+		ID:          "SEC-SECRET-GOOGLE",
+		Severity:    "HIGH",
+		Description: "Hardcoded Google API key detected",
+		Pattern:     regexp.MustCompile(`AIza[0-9A-Za-z_\-]{35}`),
+		Remediation: "Rotate via Google Cloud console and restrict the key by application/API.",
+	},
+	{
+		ID:          "SEC-SSRF-FETCH",
+		Severity:    "MEDIUM",
+		Description: "User-controlled URL used directly in an HTTP request (potential SSRF)",
+		Pattern:     regexp.MustCompile(`(?i)(?:http\.Get|http\.NewRequest\w*)\s*\([^)]*(?:\+\s*\w+|fmt\.Sprintf|url\s*\+\s*|\buserInput)`),
+		Remediation: "Validate scheme/host, block link-local & metadata IPs (169.254.169.254), and require an allowlist where feasible.",
+	},
+	{
+		ID:          "SEC-DESERIALIZE-UNSAFE",
+		Severity:    "MEDIUM",
+		Description: "unsafe/deserialization-related anti-patterns: pickle or gob.Decode on remote data",
+		Pattern:     regexp.MustCompile(`(?i)(?:pickle\.loads?\s*\(|gob\.NewDecoder\s*\(\s*(?:resp|conn|r)\.Body|yaml\.Unmarshal\s*\([^)]*\b(?:body|payload|raw|data)\b)`),
+		Remediation: "Use JSON with explicit schemas or yaml.SafeLoader; never deserialize untrusted bytes.",
+	},
+	{
+		ID:          "SEC-TLS-INSECURE-SKIP",
+		Severity:    "HIGH",
+		Description: "TLS certificate verification disabled (InsecureSkipVerify: true)",
+		Pattern:     regexp.MustCompile(`InsecureSkipVerify\s*:\s*true`),
+		Remediation: "Pin the CA bundle or install proper certs; skipping verification enables MITR for all traffic.",
+		Guard:       func(line string) bool { return !strings.Contains(line, "#nosec") },
+	},
+}
+
+var placeholderPattern = regexp.MustCompile(`(?i)(?:changeme|your[_-]?(?:api)?[_-]?(?:key|token|secret)|placeholder|example|dummy|[^a-z0-9]test|xxxx|<[^>]+>|\$\{|\%\(|here\b)`)
+
+// looksLikeRealSecret filters obvious placeholder values out of the generic
+// secret rule to keep SAST output trustworthy (few false positives => CI-gateable).
+func looksLikeRealSecret(v string) bool {
+	if len(v) < 16 {
+		return false
+	}
+	if placeholderPattern.MatchString(v) {
+		return false
+	}
+	// Shannon entropy over the alphabet used; real keys are high-entropy.
+	freq := map[byte]int{}
+	for i := 0; i < len(v); i++ {
+		freq[v[i]]++
+	}
+	h := 0.0
+	for _, c := range freq {
+		p := float64(c) / float64(len(v))
+		h -= p * math.Log2(p)
+	}
+	return h > 3.0
 }
 
 // ScanCodebase performs SAST scanning on a target directory or file
@@ -161,6 +252,16 @@ func scanFile(path string, result *SASTAuditResult) {
 	}
 	defer file.Close()
 
+	// Binary sniff: compiled artifacts (e.g. this very CLI) contain source-like
+	// strings from their standard library and must not be pattern-matched.
+	probe := make([]byte, 512)
+	if n, _ := file.Read(probe); bytes.IndexByte(probe[:n], 0) >= 0 {
+		return
+	}
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		return
+	}
+
 	scanner := bufio.NewScanner(file)
 	lineNum := 1
 
@@ -174,7 +275,7 @@ func scanFile(path string, result *SASTAuditResult) {
 		}
 
 		for _, rule := range sastRules {
-			if rule.Pattern.MatchString(line) {
+			if rule.Pattern.MatchString(line) && (rule.Guard == nil || rule.Guard(line)) {
 				snippet := strings.TrimSpace(line)
 				if len(snippet) > 100 {
 					snippet = snippet[:100] + "..."

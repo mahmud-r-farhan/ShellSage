@@ -18,6 +18,7 @@ type TreeNode struct {
 	ParentID  string              `json:"parent_id,omitempty"`
 	Role      string              `json:"role"`
 	Content   string              `json:"content"`
+	Images    []string            `json:"images,omitempty"` // vision attachments (data URIs/URLs)
 	Timestamp time.Time           `json:"timestamp"`
 	Model     string              `json:"model,omitempty"`
 	Usage     provider.TokenUsage `json:"usage,omitempty"`
@@ -49,13 +50,23 @@ func NewConversationTree(personaID string) *ConversationTree {
 
 // AddMessage appends a message as a child of the current active node
 func (t *ConversationTree) AddMessage(role, content, model string, usage provider.TokenUsage) *TreeNode {
+	return t.AddMessageWithParts(provider.Message{Role: role, Content: content}, model, usage)
+}
+
+// AddMessageWithParts appends a message including multimodal attachments.
+func (t *ConversationTree) AddMessageWithParts(msg provider.Message, model string, usage provider.TokenUsage) *TreeNode {
+	role := msg.Role
+	if role == "" {
+		role = "user"
+	}
 	seq := atomic.AddUint64(&nodeSeq, 1)
 	id := fmt.Sprintf("msg_%d_%d_%s", time.Now().UnixNano(), seq, role[:1])
 	node := &TreeNode{
 		ID:        id,
 		ParentID:  t.ActiveNodeID,
 		Role:      role,
-		Content:   content,
+		Content:   msg.Content,
+		Images:    msg.Images,
 		Timestamp: time.Now(),
 		Model:     model,
 		Usage:     usage,
@@ -75,7 +86,7 @@ func (t *ConversationTree) AddMessage(role, content, model string, usage provide
 
 	// Auto-title from first user message if default title
 	if role == "user" && t.Title == "New Conversation" {
-		snippet := strings.TrimSpace(content)
+		snippet := strings.TrimSpace(msg.Content)
 		if len(snippet) > 40 {
 			snippet = snippet[:40] + "..."
 		}
@@ -114,6 +125,7 @@ func (t *ConversationTree) GetActiveMessages() []provider.Message {
 		messages = append(messages, provider.Message{
 			Role:    n.Role,
 			Content: n.Content,
+			Images:  n.Images,
 		})
 	}
 	return messages
@@ -149,11 +161,11 @@ func (t *ConversationTree) RewindForAlternative() (*TreeNode, bool) {
 
 // Branch represents an identifiable path through the conversation
 type BranchInfo struct {
-	Index       int
-	LeafNodeID  string
+	Index        int
+	LeafNodeID   string
 	MessageCount int
-	LastSnippet string
-	IsActive    bool
+	LastSnippet  string
+	IsActive     bool
 }
 
 // ListBranches identifies all leaf nodes (endpoints) representing distinct conversation branches
