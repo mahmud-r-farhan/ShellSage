@@ -3,6 +3,7 @@ package history
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"shellsage/internal/branch"
@@ -26,8 +27,8 @@ func TestSaveLoadRenameDeleteInHomeDir(t *testing.T) {
 	}
 
 	fi, _ := os.Stat(path)
-	if perm := fi.Mode().Perm(); perm != 0600 {
-		t.Errorf("session files should be 0600 (may contain proprietary code), got %04o", perm)
+	if runtime.GOOS != "windows" && fi.Mode().Perm() != 0600 { // NTFS has no POSIX mode bits
+		t.Errorf("session files should be 0600 (may contain proprietary code), got %04o", fi.Mode().Perm())
 	}
 
 	list := ListSavedConversations()

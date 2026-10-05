@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -66,8 +67,8 @@ func TestSaveUsesOwnerOnlyPermissions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if perm := fi.Mode().Perm(); perm != 0600 {
-		t.Errorf("config file with API keys must be 0600, got %04o", perm)
+	if runtime.GOOS != "windows" && fi.Mode().Perm() != 0600 { // NTFS has no POSIX mode bits
+		t.Errorf("config file with API keys must be 0600, got %04o", fi.Mode().Perm())
 	}
 }
 
