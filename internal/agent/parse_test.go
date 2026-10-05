@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -71,10 +72,21 @@ func TestAgentSingleAssistantTurnForMultipleCalls(t *testing.T) {
 	}
 }
 
+// toolCallJSON renders a fenced tool_call block with properly escaped JSON
+// arguments (Windows test paths contain backslashes that break hand-rolled JSON).
+func toolCallJSON(t *testing.T, name string, args map[string]any) string {
+	t.Helper()
+	body, err := json.Marshal(map[string]any{"tool": name, "arguments": args})
+	if err != nil {
+		t.Fatalf("marshal tool call: %v", err)
+	}
+	return "```tool_call\n" + string(body) + "\n```"
+}
+
 func TestAgentApprovalDenySkipsTool(t *testing.T) {
 	target := filepath.Join(t.TempDir(), "shellsage_deny_test.txt")
 	mock := &scriptedProvider{responses: []string{
-		"```tool_call\n{\"tool\":\"write_file\",\"arguments\":{\"path\":\"" + target + "\",\"content\":\"pwned\"}}\n```",
+		toolCallJSON(t, "write_file", map[string]any{"path": target, "content": "pwned"}),
 		"done",
 	}}
 	ag := NewAgentWithOptions(mock, tools.NewToolRegistry(), Options{
@@ -92,7 +104,7 @@ func TestAgentApprovalDenySkipsTool(t *testing.T) {
 func TestAgentApprovalAllowWritesFile(t *testing.T) {
 	target := filepath.Join(t.TempDir(), "shellsage_allow_test.txt")
 	mock := &scriptedProvider{responses: []string{
-		"```tool_call\n{\"tool\":\"write_file\",\"arguments\":{\"path\":\"" + target + "\",\"content\":\"ok\"}}\n```",
+		toolCallJSON(t, "write_file", map[string]any{"path": target, "content": "ok"}),
 		"done",
 	}}
 	ag := NewAgentWithOptions(mock, tools.NewToolRegistry(), Options{
