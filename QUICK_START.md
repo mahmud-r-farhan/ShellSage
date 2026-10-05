@@ -11,7 +11,7 @@ Get started with **ShellSage** in less than 2 minutes!
 git clone https://github.com/mahmud-r-farhan/ShellSage.git
 cd ShellSage
 
-# Build binary
+# Build binary using standard Go layout
 make build
 
 # Run ShellSage
@@ -22,57 +22,64 @@ make build
 
 ## ⚙️ 2. Configure Your Provider
 
-When you launch ShellSage for the first time, run the interactive setup wizard:
+When you launch ShellSage for the first time, run the interactive setup wizard or CLI command:
 ```bash
+shellsage config wizard
+# OR inside the chat session:
 /config
 ```
-1. Select your preferred provider (OpenRouter, OpenAI, Claude, Gemini, Groq, DeepSeek, Ollama, etc.).
+1. Select your preferred provider (Groq, OpenRouter, OpenAI, Claude, Gemini, DeepSeek, Ollama, etc.).
 2. Enter your API key (if required).
 3. Select your model.
-4. Settings are automatically saved to `~/.shellsage/config.json`.
+4. Settings are automatically saved to `~/.shellsage/config.json` with secure `0600` permissions.
 
 ---
 
-## 💡 3. Five Powerful Workflows to Try
+## 💡 3. Powerful Workflows to Try
 
-### 1. Architectural Planning Mode
+### 1. Fast Groq Inference / One-Shot Chat
+```bash
+shellsage ask "Explain Go 1.24 range over func" --provider groq
+```
+
+### 2. Architectural Planning Mode
 ```
 /plan Build a resilient distributed caching layer in Go with Redis fallback
 ```
 
-### 2. Autonomous Agent (Search & Coding)
+### 3. Autonomous Agent (Search & Coding)
 ```
 /agent Search for latest Go 1.24 features and summarize top 5 enhancements
 ```
 
-### 3. Diagnose an Error Log
-```
-/debug panic: runtime error: index out of range [3] with length 2 in main.go:45
+### 4. Diagnose an Error Log
+```bash
+cat build.log | shellsage debug - --provider groq
 ```
 
-### 4. Copy Code to Clipboard & Export
+### 5. Copy Code to Clipboard & Export
 ```
 /copy code
 /export pdf my_chat_summary.pdf
 ```
 
-### 5. Schedule Automated Work at Local Time
+### 6. Schedule Automated Work at Local Time
 ```
 /schedule at 16:30 Run go test ./... and summarize results
 ```
 
 ---
 
-## ❓ Need Help?
-Type `/help` inside the CLI at any time!
-
-## ⚡ 60-Second v4 Tour
+## ⚡ 60-Second ShellSage Tour
 
 ```bash
-shellsage doctor                      # what's configured, what works, what's broken
-shellsage provider list               # 20 providers, their key env vars, active pick
-shellsage provider use groq           # or: config set groq.api_key gsk_...
-shellsage models list --remote        # live model catalog from the provider
-shellsage ask "one-line question"     # pipes in, --json out
-shellsage agent "small task"          # mutating tools ask for approval (--yes in CI)
+shellsage doctor                      # environment diagnostics
+shellsage provider list               # 20 providers & key env settings
+shellsage provider use groq           # set active provider
+shellsage models list --remote        # live model catalog
+shellsage ask "one-line question"     # pipe in, JSON out
+shellsage agent "small task"          # autonomous agent with approval gate
 ```
+
+## ❓ Need Help?
+Type `/help` inside the CLI or run `shellsage help` at any time!
