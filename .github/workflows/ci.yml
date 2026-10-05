@@ -24,6 +24,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
+      defaults:
+        run:
+          shell: bash
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         go: ['1.24']
