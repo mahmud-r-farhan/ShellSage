@@ -11,38 +11,33 @@ import (
 	"shellsage/internal/branch"
 	"shellsage/internal/config"
 	"shellsage/internal/persona"
+	"shellsage/internal/provider"
 )
 
-// SelectProviderMenu prompts the user to select an active LLM provider
+// SelectProviderMenu prompts the user to select an active LLM provider.
+// The list is generated from the provider registry, so adding a provider
+// automatically surfaces it here (single source of truth).
 func SelectProviderMenu(current config.ProviderType) config.ProviderType {
 	reader := bufio.NewReader(os.Stdin)
 
-	providers := []struct {
-		Type config.ProviderType
-		Name string
-		Desc string
-	}{
-		{config.ProviderOpenRouter, "OpenRouter", "Unified hub for 200+ models (Free & Paid)"},
-		{config.ProviderOpenAI, "OpenAI", "Direct API for GPT-4o, o1, o3-mini"},
-		{config.ProviderAnthropic, "Anthropic", "Direct API for Claude 3.5 & 3.7 Sonnet/Haiku"},
-		{config.ProviderGemini, "Google Gemini", "Gemini 2.0 Flash / Pro"},
-		{config.ProviderGroq, "Groq Cloud", "Ultra-fast inference (Llama 3.3, Mixtral, DeepSeek)"},
-		{config.ProviderDeepSeek, "DeepSeek", "Direct API for DeepSeek-V3 & DeepSeek-R1"},
-		{config.ProviderOllama, "Ollama (Local)", "Run offline local models (llama3, mistral, qwen)"},
-		{config.ProviderCustom, "Custom / Self-Hosted", "Any OpenAI-compatible server (vLLM, LM Studio)"},
-	}
+	descriptors := provider.All()
 
-	color.Cyan("\n🌐 ━━ Select LLM Provider ━━\n")
-	for i, p := range providers {
+	color.Cyan("\n🌐 ━━ Select LLM Provider (%d available) ━━\n", len(descriptors))
+	page := descriptors
+	for i, p := range page {
 		activeTag := ""
-		if p.Type == current {
+		if config.ProviderType(p.ID) == current {
 			activeTag = color.HiGreenString(" [CURRENT]")
 		}
-		color.White("  [%d] %-22s %s%s\n", i+1, p.Name, color.HiBlackString("- "+p.Desc), activeTag)
+		keyTag := ""
+		if !p.RequiresKey {
+			keyTag = color.HiBlackString(" (no key needed)")
+		}
+		color.White("  [%d] %-14s %-24s %s%s%s\n", i+1, p.ID, p.DisplayName, color.HiBlackString("- "+p.Tagline), keyTag, activeTag)
 	}
 	color.White("  [0] Keep current (%s)\n", current)
 
-	color.Cyan("\nEnter choice (0-%d): ", len(providers))
+	color.Cyan("\nEnter choice (0-%d) or a provider id: ", len(page))
 	input, _ := reader.ReadString('\n')
 	input = strings.TrimSpace(input)
 
@@ -50,11 +45,14 @@ func SelectProviderMenu(current config.ProviderType) config.ProviderType {
 		return current
 	}
 
-	idx, err := strconv.Atoi(input)
-	if err == nil && idx >= 1 && idx <= len(providers) {
-		return providers[idx-1].Type
+	if idx, err := strconv.Atoi(input); err == nil && idx >= 1 && idx <= len(page) {
+		return config.ProviderType(page[idx-1].ID)
+	}
+	if id, ok := provider.NormalizeID(input); ok {
+		return config.ProviderType(id)
 	}
 
+	color.Yellow("Unknown provider %q — keeping %s\n", input, current)
 	return current
 }
 

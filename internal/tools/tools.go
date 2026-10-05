@@ -7,11 +7,29 @@ import (
 	"strings"
 )
 
+// Risk classifies what a tool can mutate; drives the agent's approval gate.
+type Risk string
+
+const (
+	RiskRead  Risk = "read"  // pure inspection — always safe
+	RiskWrite Risk = "write" // mutates local files
+	RiskExec  Risk = "exec"  // runs shell commands
+	RiskNet   Risk = "net"   // outbound network side effects (non-GET)
+)
+
+// RequiresApproval reports whether this risk class must pass the approval gate.
+func (r Risk) RequiresApproval() bool {
+	return r == RiskWrite || r == RiskExec || r == RiskNet
+}
+
 // ToolDef defines a tool available to the agent
 type ToolDef struct {
 	Name        string                 `json:"name"`
 	Description string                 `json:"description"`
 	Parameters  map[string]interface{} `json:"parameters"`
+	Risk        Risk                   `json:"risk"`
+	// DynamicRisk optionally refines the risk class per-invocation (overrides Risk).
+	DynamicRisk func(args map[string]interface{}) Risk                                 `json:"-"`
 	Handler     func(ctx context.Context, args map[string]interface{}) (string, error) `json:"-"`
 }
 
@@ -31,7 +49,43 @@ func NewToolRegistry() *ToolRegistry {
 
 // Register adds a tool to the registry
 func (r *ToolRegistry) Register(tool ToolDef) {
+	if tool.Risk == "" {
+		tool.Risk = RiskRead
+	}
 	r.tools[tool.Name] = tool
+}
+
+// RiskFor reports the risk class of a tool (unknown tools default to exec-level caution).
+func (r *ToolRegistry) RiskFor(name string) Risk {
+	t, ok := r.tools[name]
+	if !ok {
+		return RiskExec
+	}
+	return t.Risk
+}
+
+// RiskForArgs reports the risk class for a *specific* invocation, allowing
+// tools like http_request to be read-only for GET but side-effecting for POST.
+func (r *ToolRegistry) RiskForArgs(name, rawArgs string) Risk {
+	t, ok := r.tools[name]
+	if !ok {
+		return RiskExec
+	}
+	if t.DynamicRisk != nil {
+		var args map[string]interface{}
+		if rawArgs != "" {
+			if err := json.Unmarshal([]byte(rawArgs), &args); err != nil {
+				args = map[string]interface{}{"input": rawArgs}
+			}
+		}
+		if args == nil {
+			args = map[string]interface{}{}
+		}
+		if dyn := t.DynamicRisk(args); dyn != "" {
+			return dyn
+		}
+	}
+	return t.Risk
 }
 
 // Get finds a tool by name

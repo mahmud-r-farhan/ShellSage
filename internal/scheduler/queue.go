@@ -109,3 +109,11 @@ func (q *TaskQueue) ExecuteNext(ctx context.Context, listener agent.AgentListene
 	next.Result = ans
 	return next, nil
 }
+
+// SetAgent swaps the underlying agent (after provider/model changes) without
+// losing queued tasks.
+func (q *TaskQueue) SetAgent(ag *agent.Agent) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	q.agent = ag
+}

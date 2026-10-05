@@ -65,3 +65,14 @@ When you launch ShellSage for the first time, run the interactive setup wizard:
 
 ## ❓ Need Help?
 Type `/help` inside the CLI at any time!
+
+## ⚡ 60-Second v4 Tour
+
+```bash
+shellsage doctor                      # what's configured, what works, what's broken
+shellsage provider list               # 20 providers, their key env vars, active pick
+shellsage provider use groq           # or: config set groq.api_key gsk_...
+shellsage models list --remote        # live model catalog from the provider
+shellsage ask "one-line question"     # pipes in, --json out
+shellsage agent "small task"          # mutating tools ask for approval (--yes in CI)
+```

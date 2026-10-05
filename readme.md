@@ -13,23 +13,31 @@ It brings universal multi-provider LLM support, autonomous tool execution (files
 
 ## ✨ Key Capabilities
 
-### 🌐 Universal Multi-Provider Engine
-Connect directly to any major LLM provider or self-hosted local model:
-- **OpenRouter** (Aggregator of 200+ models)
-- **OpenAI** (GPT-4o, GPT-4o-mini, o1, o3-mini)
-- **Anthropic Claude** (Claude 3.5 & 3.7 Sonnet, Claude 3.5 Haiku)
-- **Google Gemini** (Gemini 2.0 Flash, Gemini 1.5 Pro)
-- **Groq Cloud** (Ultra-fast 500+ tok/s inference on Llama 3.3 & Mixtral)
-- **DeepSeek** (DeepSeek-V3, DeepSeek-R1)
-- **Ollama** (Local offline privacy-first LLMs)
-- **Custom / Self-Hosted** (vLLM, LM Studio, LocalAI)
+### 🌐 Universal Multi-Provider Engine — 20 Providers
+Connect to any major LLM API, open-model host, or self-hosted server — all configured the
+same way (`<PROVIDER>_API_KEY` / `_MODEL` / `_BASE_URL`) and driven by one registry, so
+`shellsage provider list` always shows what actually exists:
+
+| Tier | Providers |
+| :--- | :--- |
+| **Aggregators** | OpenRouter (300+ models) · GitHub Models (your `gh` token!) · Hugging Face Inference · Custom/OpenAI-compatible (vLLM, LM Studio, llama.cpp) |
+| **Frontier APIs** | OpenAI (GPT-4.1, o4-mini) · Anthropic Claude (Sonnet/Opus 4) · Google Gemini (2.5 Pro/Flash) · Mistral (Codestral) · xAI Grok · Cohere (Command A) · DeepSeek (V3/R1) · Perplexity Sonar (live web) |
+| **Speed/cost inference** | Groq · Cerebras (~1000 tok/s, free tier) · Together · Fireworks · DeepInfra · NVIDIA NIM · Azure OpenAI (api-key auth, deployments) |
+| **Local & private** | Ollama (installed-models auto-detected) |
+
+Model catalogs live in one table (`internal/provider/registry.go`) — adding a provider is a
+**single struct entry** that auto-wires config defaults, env overrides, menus and the factory.
 
 ### 🤖 Autonomous Agent & Developer Tools
 ShellSage features a built-in ReAct autonomous execution engine equipped with safe developer tools:
-- **Filesystem**: Safe read, write, edit (find & replace), directory tree, and fast codebase grep search.
-- **Shell Runner**: Execute shell commands, test suites, and build scripts with timeout protection.
-- **Web Search & Scraping**: Search the live web (DuckDuckGo API/HTML) and extract clean readable text from online documentation.
-- **Git Integration**: Inspect git status and analyze unstaged diffs.
+- **Filesystem**: Safe read, write, edit, glob `find_files`, fast codebase grep, and atomic
+  multi-hunk `apply_patch` (with `dry_run` previews — all-or-nothing writes).
+- **Shell Runner**: Commands/tests/builds with timeouts and a catastrophic-command deny-list.
+- **Web**: Live search (DuckDuckGo), doc scraping, and a full `http_request` tool for poking REST
+  APIs — with SSRF guard (link-local/metadata IPs always blocked).
+- **Git Integration**: `git_status`, `git_diff`, `git_log`, `git_branch`.
+- **Approval Gate**: every state-changing tool (write/exec/net) prompts — `y` / `n` / `a(ll)` —
+  unless `--yes` (CI) or `approve_mode: read-only` (hard lockdown).
 - **Specialized Modes**:
   - `/plan <requirement>`: Architect detailed step-by-step implementation plans.
   - `/debug <error/log>`: Perform deep root-cause diagnostic and automated patch generation.
@@ -39,14 +47,20 @@ ShellSage features a built-in ReAct autonomous execution engine equipped with sa
 - **Alternative Responses** (`/retry`, `/alt`): Fork conversations at any turn and generate alternative completions.
 - **Branch Navigator** (`/branch`): Switch between multiple conversation paths seamlessly.
 - **Visual ASCII Tree** (`/tree`): Render the complete conversation structure in your terminal.
+- **Context Compression** (`/compress`): LLM-fold long sessions into a summary node when you hit
+  model context budgets (auto-trim keeps you under `max_context_tokens` in the meantime).
+- **Session Library**: auto-save to `~/.shellsage/conversations` with `/resume`, `/rename`,
+  `/delete` — your history no longer lives in whatever directory you happened to `cd` into.
 
 ### 🎭 Custom Persona Studio
-- **Prebuilt Personas**: Senior Software Engineer, Enterprise Architect, Root-Cause Specialist, Technical Documentation Writer, DevOps & SRE Engineer, Security Auditor, and Agile Planner.
+- **Prebuilt Personas**: Senior Software Engineer, Enterprise Architect, Root-Cause Specialist, Technical Writer, DevOps & SRE, Security Auditor, Agile Planner, **Senior Code Reviewer** and **Test & QA Engineer**.
 - **Custom Persona Builder** (`/persona create`): Interactively create and persist specialized system personas saved to `~/.shellsage/personas/`.
 
 ### ⏰ Task Queue & Local Time Scheduler
 - **Background Task Queue** (`/queue add`, `/queue list`, `/queue run`): Queue multi-step engineering tasks.
-- **Local Time Scheduler** (`/schedule at 15:30 <task>`, `/schedule in 30m <task>`): Schedule automated agent tasks to trigger at specific local clock times or after relative durations.
+- **Local Time Scheduler** (`/schedule at 15:30 <task>`, `/schedule in 30m <task>`, `/schedule daily 09:00 <task>`):
+  timer-driven (no busy polling), jobs persist to `~/.shellsage/schedule.json` and are marked *missed* —
+  never silently fired — if the process was down at trigger time.
 
 ### 📋 Clipboard & Rich Exporters
 - **Native OS Clipboard** (`/copy`, `/copy code`, `/copy all`): True cross-platform clipboard support.
@@ -54,7 +68,8 @@ ShellSage features a built-in ReAct autonomous execution engine equipped with sa
 
 ### 📊 Token Analytics & Cost Tracker
 - Real-time token monitoring (prompt, completion, total).
-- Cost calculator across different model pricing tiers.
+- Cost calculator across different model pricing tiers (updated for GPT-4.1, Claude 4, Gemini 2.5, Grok 3, Cerebras free tier…).
+- Context-token budget with automatic trimming — long sessions can't blow up request size.
 - Detailed session metrics via `/stats` and `/analytics`.
 
 ---
@@ -128,25 +143,68 @@ cp .env.example .env
 
 ---
 
-## 🛠️ CLI Flags & Subcommands
-
-Run non-interactive tasks directly from the terminal or in CI/CD scripts:
+## 🛠️ CLI Subcommands — built for scripts, pipes & CI
 
 ```bash
-# Autonomous Agent Mode
-shellsage --agent "Find all TODO comments in internal/ and create a summary report"
+# One-shot chat; reads pipes automatically, JSON out for scripting
+shellsage ask "Explain this failure" < build.log
+go test ./... 2>&1 | shellsage ask - --provider groq --json | jq -r .content
+cat stack.log | shellsage debug -              # paste any error stream into debug
 
-# Architectural Planning
-shellsage --plan "Design a high-throughput WebSocket chat server in Go"
+# Autonomous agent with approvals (CI: --yes) and an audit trail
+shellsage agent "find all TODO comments in internal/ and open a summary doc"
+shellsage agent --yes --steps 20 --log-file agent.jsonl "fix the failing tests"
 
-# Error Diagnostics
-shellsage --debug "panic: runtime error: invalid memory address or nil pointer dereference"
+# Architecture planning / error diagnosis / doc generator
+shellsage plan "Design a WebSocket chat server in Go"
+shellsage debug "panic: invalid memory address" --file crash.txt
+shellsage doc internal/branch/tree.go > docs/BRANCH.md
 
-# Code Documentation Generation
-shellsage --doc "internal/branch/tree.go"
+# Manage providers & models without leaving the terminal
+shellsage provider list                     # all 20 providers + which keys are set
+shellsage provider use anthropic            # persisted to ~/.shellsage/config.json (0600)
+shellsage models list --remote              # live catalog from the provider API
+shellsage config set groq.api_key gsk_...   # non-interactive setup (great for Docker/CI)
 
-# Launch Configuration Wizard
-shellsage --config
+# Diagnostics & shell ergonomics
+shellsage doctor                            # config, keys, endpoint ping, clipboard — with exit codes
+shellsage completion bash > /etc/bash_completion.d/shellsage
+shellsage sessions list | delete chat_x.json
+
+# Legacy v3 flags keep working
+shellsage --agent "…goal…" --plan "…requirement…" --debug "…error…" --doc file.go --audit path
+```
+
+**Global flags** (all subcommands): `--provider --model --temp --max-tokens --stream auto|on|off
+--json --quiet --yes --no-color --timeout 120s --image shot.png --system "…" --config-file path`
+
+**Scripting contract:** `--json` prints `{ok, provider, model, mode, content, usage, cost_usd,
+duration_ms, error}`; exit codes are 0/1/2 (ok / provider error / usage error) so failures break
+pipelines correctly. Decorative output never pollutes stdout (usage lines go to stderr), and
+`NO_COLOR` is respected.
+
+## 🌍 Real-World Recipes
+
+```bash
+# 1) CI quality gate: block merges when the AI flags new critical secrets
+git diff origin/main | shellsage sec sast . --json | jq -e '.critical_count == 0'
+
+# 2) Nightly repo health note (schedule works inside the REPL)
+#    /schedule daily 09:00 Scan CI logs in .github and summarize flaky tests
+
+# 3) Postmortem in 30 seconds
+kubectl logs deploy/payments --previous > crash.log
+shellsage debug - --provider claude < crash.log | tee postmortem.md
+
+# 4) Onboard onto an unfamiliar codebase for free (no key needed)
+ollama serve && ollama pull qwen2.5-coder
+shellsage --provider ollama agent "map the architecture of ./internal into ARCHITECTURE.md"
+
+# 5) Live-docs-aware answers while pairing
+shellsage ask "latest Chi router middleware example" --provider perplexity
+
+# 6) Paste a screenshot of a bug report (vision-capable models)
+shellsage ask "write a Go failing test for this bug" --image report.png
 ```
 
 ---

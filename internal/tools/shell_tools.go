@@ -13,6 +13,7 @@ import (
 func (r *ToolRegistry) registerShellTools() {
 	r.Register(ToolDef{
 		Name:        "run_command",
+		Risk:        RiskExec,
 		Description: "Executes a shell command (e.g. go test, git, build, npm) and captures output",
 		Parameters: map[string]interface{}{
 			"type": "object",
@@ -31,12 +32,29 @@ func (r *ToolRegistry) registerShellTools() {
 				return "", fmt.Errorf("missing 'command' argument")
 			}
 
-			// Block destructive system commands
-			blocked := []string{"rm -rf /", "rmdir /s /q c:\\windows", "format c:"}
+			// Hard deny-list of catastrophic commands (belt and braces on top
+			// of the agent's approval gate).
+			lower := strings.ToLower(command)
+			blocked := []string{
+				"rm -rf /", "rm -rf /*", "rm -rf ~", "rm -rf ./* ;",
+				"rmdir /s /q c:\\windows", "format c:", "del /f /s /q c:\\",
+				"mkfs.", "dd if=", "> /dev/sd", "shutdown", "reboot", "halt",
+				":(){ :|:& };:", "chmod -rf 777 /", "chown -rf", "mv / ",
+			}
 			for _, b := range blocked {
-				if strings.Contains(strings.ToLower(command), b) {
-					return "", fmt.Errorf("command blocked for safety: dangerous system command")
+				if strings.Contains(lower, b) {
+					return "", fmt.Errorf("command blocked for safety: matches dangerous pattern %q", b)
 				}
+			}
+			// curl|sh style pipes get flagged to the agent as high-risk, not denied:
+			// they are legitimate in some flows and the approval gate still applies.
+			if (strings.Contains(lower, "curl ") || strings.Contains(lower, "wget ")) && strings.Contains(lower, "|") &&
+				(strings.Contains(lower, "| sh") || strings.Contains(lower, "| bash") || strings.Contains(lower, "sudo")) {
+				// allow but note it — executor approval flow will prompt for RiskExec anyway
+				command = command + " # NOTE: piped remote script — verify source before trusting output"
+			}
+			if strings.HasPrefix(strings.TrimSpace(lower), "sudo ") {
+				return "", fmt.Errorf("sudo is blocked from the agent shell; if this is intentional, run it yourself in your terminal")
 			}
 
 			timeoutSec := 30

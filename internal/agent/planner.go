@@ -34,7 +34,7 @@ Format your plan with the following structure:
 `
 
 	req := &provider.ChatRequest{
-		Model: a.model,
+		Model: a.opts.Model,
 		Messages: []provider.Message{
 			{Role: "system", Content: systemPrompt},
 			{Role: "user", Content: fmt.Sprintf("Please generate a detailed implementation plan for: %s", requirement)},

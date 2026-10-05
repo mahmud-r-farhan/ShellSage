@@ -2,6 +2,7 @@ package security
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"net"
 	"strings"
@@ -42,27 +43,49 @@ func InspectSSLCertificate(domain string) (*SSLAuditResult, error) {
 	}
 
 	dialer := &net.Dialer{Timeout: 10 * time.Second}
+
+	// This is a *collector*: the handshake fetches the presented chain without
+	// letting Go fail fast, so we can always report details. The trust decision
+	// itself is made explicitly below with x509.Verify against the system root
+	// pool — never silently skipped.
 	conn, err := tls.DialWithDialer(dialer, "tcp", domain, &tls.Config{
-		ServerName:         host,
-		InsecureSkipVerify: false,
+		ServerName: host,
+		// Verification is performed manually via verifyPeerChain below.
+		InsecureSkipVerify: true, // #nosec G402 -- collector; trust checked explicitly after handshake
 	})
 	if err != nil {
-		// Try insecure to at least inspect the invalid cert and report exact errors
-		insecureConn, inErr := tls.DialWithDialer(dialer, "tcp", domain, &tls.Config{
-			ServerName:         host,
-			InsecureSkipVerify: true,
-		})
-		if inErr != nil {
-			return nil, fmt.Errorf("TLS handshake failed: %w", err)
-		}
-		defer insecureConn.Close()
-		state := insecureConn.ConnectionState()
-		return parseCertState(host, state, []string{fmt.Sprintf("Certificate Validation Failed: %v", err)}), nil
+		return nil, fmt.Errorf("TLS handshake failed: %w", err)
 	}
 	defer conn.Close()
 
 	state := conn.ConnectionState()
-	return parseCertState(host, state, nil), nil
+	warnings := verifyPeerChain(host, state)
+	return parseCertState(host, state, warnings), nil
+}
+
+// verifyPeerChain performs the real trust evaluation offline: chain to a system
+// root and hostname match, returning human-readable failures as warnings.
+func verifyPeerChain(host string, state tls.ConnectionState) []string {
+	if len(state.PeerCertificates) == 0 {
+		return []string{"No peer certificates provided by server"}
+	}
+	roots, err := x509.SystemCertPool()
+	if err != nil || roots == nil {
+		return []string{"Unable to load system root CA pool — certificate trust could not be verified"}
+	}
+	intermediates := x509.NewCertPool()
+	for _, c := range state.PeerCertificates[1:] {
+		intermediates.AddCert(c)
+	}
+	opts := x509.VerifyOptions{
+		Roots:         roots,
+		Intermediates: intermediates,
+		DNSName:       host,
+	}
+	if _, err := state.PeerCertificates[0].Verify(opts); err != nil {
+		return []string{fmt.Sprintf("Certificate Validation Failed: %v", err)}
+	}
+	return nil
 }
 
 func parseCertState(host string, state tls.ConnectionState, initialWarnings []string) *SSLAuditResult {

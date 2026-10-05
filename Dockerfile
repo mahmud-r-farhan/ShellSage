@@ -19,16 +19,22 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o shellsage .
 # ── Runtime Stage ──
 FROM alpine:3.21
 
-WORKDIR /root/
+WORKDIR /workspace
 
 RUN apk add --no-cache ca-certificates tzdata git bash curl
 
 # Copy compiled binary from builder
 COPY --from=builder /app/shellsage /usr/local/bin/shellsage
 
-# Create application directories
-RUN mkdir -p /root/.shellsage/personas /root/.shellsage/history /root/conversations /root/exports
+# Real-world container hygiene: unprivileged user, config in a named location.
+RUN addgroup -g 1000 shellsage && adduser -u 1000 -G shellsage -h /home/shellsage -D shellsage \
+    && mkdir -p /home/shellsage/.shellsage /workspace && chown -R shellsage:shellsage /home/shellsage /workspace
 
+USER shellsage
 ENV SHELLSAGE_IN_DOCKER=true
+ENV SHELLSAGE_HOME=/home/shellsage/.shellsage
+VOLUME ["/home/shellsage/.shellsage", "/workspace"]
+WORKDIR /workspace
 
 ENTRYPOINT ["shellsage"]
+CMD ["--help"]

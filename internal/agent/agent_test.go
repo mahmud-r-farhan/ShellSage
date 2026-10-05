@@ -14,7 +14,7 @@ type mockProvider struct {
 	callIdx   int
 }
 
-func (m *mockProvider) Name() string { return "mock" }
+func (m *mockProvider) Name() string                  { return "mock" }
 func (m *mockProvider) ListAvailableModels() []string { return []string{"mock-model"} }
 func (m *mockProvider) Chat(ctx context.Context, req *provider.ChatRequest) (*provider.ChatResponse, error) {
 	resp := m.responses[m.callIdx]

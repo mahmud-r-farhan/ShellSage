@@ -4,20 +4,24 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
-
-	"shellsage/internal/config"
 )
 
-// Message represents a chat message
+// Message represents a chat message. Images (optional) carries multimodal
+// attachments as data URIs ("data:image/png;base64,...") or http(s) URLs;
+// OpenAI-compatible and Anthropic providers render them as content parts.
 type Message struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role    string   `json:"role"`
+	Content string   `json:"content"`
+	Images  []string `json:"images,omitempty"`
 }
 
 // ChatRequest represents the unified request payload
@@ -56,6 +60,18 @@ type Provider interface {
 	ListAvailableModels() []string
 }
 
+// RemoteModelLister is implemented by providers that can enumerate live models
+// from their API (`/models`, or Ollama's `/api/tags`).
+type RemoteModelLister interface {
+	ListRemoteModels(ctx context.Context) ([]string, error)
+}
+
+// ModelFetcher is implemented by providers able to query locally installed
+// models (e.g. Ollama).
+type ModelFetcher interface {
+	FetchInstalledModels() []string
+}
+
 // BaseOpenAICompatibleProvider implements common logic for OpenAI-like endpoints
 type BaseOpenAICompatibleProvider struct {
 	providerName string
@@ -65,6 +81,8 @@ type BaseOpenAICompatibleProvider struct {
 	httpClient   *http.Client
 	models       []string
 	extraHeaders map[string]string
+	authStyle    string // "" => Authorization: Bearer, "api-key" => api-key header
+	maxRetries   int
 }
 
 // NewBaseProvider creates a reusable base provider
@@ -79,6 +97,7 @@ func NewBaseProvider(name, apiKey, baseURL, defaultModel string, models []string
 		},
 		models:       models,
 		extraHeaders: extraHeaders,
+		maxRetries:   defaultMaxRetries,
 	}
 }
 
@@ -90,6 +109,89 @@ func (p *BaseOpenAICompatibleProvider) ListAvailableModels() []string {
 	return p.models
 }
 
+// SetAuthStyle configures the API-key transport header ("api-key" for Azure).
+func (p *BaseOpenAICompatibleProvider) SetAuthStyle(style string) { p.authStyle = style }
+
+// SetMaxRetries overrides the retry budget for transient failures.
+func (p *BaseOpenAICompatibleProvider) SetMaxRetries(n int) { p.maxRetries = n }
+
+// SetTimeout adjusts the overall HTTP client timeout.
+func (p *BaseOpenAICompatibleProvider) SetTimeout(d time.Duration) {
+	if d > 0 {
+		p.httpClient.Timeout = d
+	}
+}
+
+func (p *BaseOpenAICompatibleProvider) setHeaders(httpReq *http.Request) {
+	httpReq.Header.Set("Content-Type", "application/json")
+	if p.apiKey != "" {
+		switch p.authStyle {
+		case "api-key":
+			httpReq.Header.Set("api-key", p.apiKey)
+		default:
+			httpReq.Header.Set("Authorization", "Bearer "+p.apiKey)
+		}
+	}
+	httpReq.Header.Set("User-Agent", "ShellSage/4.0")
+	for k, v := range p.extraHeaders {
+		httpReq.Header.Set(k, v)
+	}
+}
+
+// buildPayload serializes a ChatRequest, converting messages with attached
+// images into OpenAI multimodal `content` part arrays.
+func (p *BaseOpenAICompatibleProvider) buildPayload(req *ChatRequest, stream bool) ([]byte, error) {
+	type imageURL struct {
+		URL string `json:"url"`
+	}
+	type part struct {
+		Type     string    `json:"type"`
+		Text     string    `json:"text,omitempty"`
+		ImageURL *imageURL `json:"image_url,omitempty"`
+	}
+	type wireMsg struct {
+		Role    string      `json:"role"`
+		Content interface{} `json:"content"`
+	}
+	type wireReq struct {
+		Model       string    `json:"model"`
+		Messages    []wireMsg `json:"messages"`
+		Temperature float64   `json:"temperature,omitempty"`
+		MaxTokens   int       `json:"max_tokens,omitempty"`
+		Stream      bool      `json:"stream"`
+	}
+
+	anyImages := false
+	for _, m := range req.Messages {
+		if len(m.Images) > 0 {
+			anyImages = true
+			break
+		}
+	}
+
+	wr := wireReq{
+		Model:       req.Model,
+		Messages:    make([]wireMsg, 0, len(req.Messages)),
+		Temperature: req.Temperature,
+		MaxTokens:   req.MaxTokens,
+		Stream:      stream,
+	}
+
+	for _, m := range req.Messages {
+		if !anyImages || len(m.Images) == 0 {
+			wr.Messages = append(wr.Messages, wireMsg{Role: m.Role, Content: m.Content})
+			continue
+		}
+		parts := []part{{Type: "text", Text: m.Content}}
+		for _, img := range m.Images {
+			parts = append(parts, part{Type: "image_url", ImageURL: &imageURL{URL: img}})
+		}
+		wr.Messages = append(wr.Messages, wireMsg{Role: m.Role, Content: parts})
+	}
+
+	return json.Marshal(wr)
+}
+
 func (p *BaseOpenAICompatibleProvider) Chat(ctx context.Context, req *ChatRequest) (*ChatResponse, error) {
 	if req.Model == "" {
 		req.Model = p.defaultModel
@@ -99,28 +201,27 @@ func (p *BaseOpenAICompatibleProvider) Chat(ctx context.Context, req *ChatReques
 		req.MaxTokens = 4096
 	}
 
-	body, err := json.Marshal(req)
+	body, err := p.buildPayload(req, false)
 	if err != nil {
 		return nil, fmt.Errorf("error marshaling request: %w", err)
 	}
 
 	endpoint := p.baseURL + "/chat/completions"
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", endpoint, bytes.NewBuffer(body))
-	if err != nil {
-		return nil, fmt.Errorf("error creating request: %w", err)
-	}
-
-	p.setHeaders(httpReq)
-
-	resp, err := p.httpClient.Do(httpReq)
+	resp, err := doWithRetry(ctx, p.httpClient, p.maxRetries, func() (*http.Request, error) {
+		httpReq, err := http.NewRequest("POST", endpoint, bytes.NewBuffer(body))
+		if err != nil {
+			return nil, fmt.Errorf("error creating request: %w", err)
+		}
+		p.setHeaders(httpReq)
+		return httpReq, nil
+	})
 	if err != nil {
 		return nil, fmt.Errorf("error connecting to %s API: %w", p.providerName, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		respBytes, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("%s API error (status %d): %s", p.providerName, resp.StatusCode, string(respBytes))
+		return nil, formatAPIError(p.providerName, resp)
 	}
 
 	var rawResp struct {
@@ -173,35 +274,37 @@ func (p *BaseOpenAICompatibleProvider) Stream(ctx context.Context, req *ChatRequ
 		req.MaxTokens = 4096
 	}
 
-	body, err := json.Marshal(req)
+	body, err := p.buildPayload(req, true)
 	if err != nil {
 		return nil, fmt.Errorf("error marshaling request: %w", err)
 	}
 
 	endpoint := p.baseURL + "/chat/completions"
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", endpoint, bytes.NewBuffer(body))
-	if err != nil {
-		return nil, fmt.Errorf("error creating request: %w", err)
-	}
-
-	p.setHeaders(httpReq)
-	httpReq.Header.Set("Accept", "text/event-stream")
-
-	resp, err := p.httpClient.Do(httpReq)
+	// Retries apply to establishing the stream; mid-stream breaks surface as errors.
+	resp, err := doWithRetry(ctx, p.httpClient, p.maxRetries, func() (*http.Request, error) {
+		httpReq, err := http.NewRequest("POST", endpoint, bytes.NewBuffer(body))
+		if err != nil {
+			return nil, fmt.Errorf("error creating request: %w", err)
+		}
+		p.setHeaders(httpReq)
+		httpReq.Header.Set("Accept", "text/event-stream")
+		return httpReq, nil
+	})
 	if err != nil {
 		return nil, fmt.Errorf("error connecting to %s API stream: %w", p.providerName, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		respBytes, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("%s API streaming error (status %d): %s", p.providerName, resp.StatusCode, string(respBytes))
+		return nil, formatAPIError(p.providerName, resp)
 	}
 
 	scanner := bufio.NewScanner(resp.Body)
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024) // long SSE lines on big chunks
 	var fullContent strings.Builder
 	var lastModel string
 	var usage TokenUsage
+	var finishReason string
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -245,6 +348,9 @@ func (p *BaseOpenAICompatibleProvider) Stream(ctx context.Context, req *ChatRequ
 		}
 
 		if len(chunk.Choices) > 0 {
+			if chunk.Choices[0].FinishReason != "" {
+				finishReason = chunk.Choices[0].FinishReason
+			}
 			delta := chunk.Choices[0].Delta.Content
 			if delta != "" {
 				fullContent.WriteString(delta)
@@ -267,28 +373,73 @@ func (p *BaseOpenAICompatibleProvider) Stream(ctx context.Context, req *ChatRequ
 	}
 
 	return &ChatResponse{
-		Model:   lastModel,
-		Content: content,
-		Usage:   usage,
+		Model:        lastModel,
+		Content:      content,
+		Usage:        usage,
+		FinishReason: finishReason,
 	}, nil
 }
 
-func (p *BaseOpenAICompatibleProvider) setHeaders(httpReq *http.Request) {
-	httpReq.Header.Set("Content-Type", "application/json")
-	if p.apiKey != "" {
-		httpReq.Header.Set("Authorization", "Bearer "+p.apiKey)
+// ListRemoteModels queries the provider's `/models` endpoint (OpenAI standard).
+func (p *BaseOpenAICompatibleProvider) ListRemoteModels(ctx context.Context) ([]string, error) {
+	endpoint := p.baseURL + "/models"
+	client := &http.Client{Timeout: 15 * time.Second}
+
+	var out struct {
+		Data []struct {
+			ID string `json:"id"`
+		} `json:"data"`
+		Error struct {
+			Message string `json:"message"`
+		} `json:"error"`
 	}
-	httpReq.Header.Set("User-Agent", "ShellSage/3.0")
-	for k, v := range p.extraHeaders {
-		httpReq.Header.Set(k, v)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, err
 	}
+	p.setHeaders(req)
+	req.Header.Del("Content-Type")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("%s: cannot reach %s: %w", p.providerName, endpoint, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
+		return nil, fmt.Errorf("%s /models returned status %d: %s", p.providerName, resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil, fmt.Errorf("%s: failed to decode /models response: %w", p.providerName, err)
+	}
+	if out.Error.Message != "" {
+		return nil, fmt.Errorf("%s: %s", p.providerName, out.Error.Message)
+	}
+
+	seen := map[string]bool{}
+	var names []string
+	for _, m := range out.Data {
+		if m.ID != "" && !seen[m.ID] {
+			seen[m.ID] = true
+			names = append(names, m.ID)
+		}
+	}
+	return names, nil
 }
 
-// EstimateUsage provides rough token counts when providers don't report them
+// EstimateUsage provides rough token counts when providers don't report them.
+// It excludes image data URIs from the character count so costs stay sane.
 func EstimateUsage(messages []Message, response string) TokenUsage {
 	promptChars := 0
 	for _, m := range messages {
 		promptChars += len(m.Content) + len(m.Role)
+		if len(m.Images) > 0 {
+			// Heuristic: each attached image ≈ 850 tokens for vision models.
+			promptChars += len(m.Images) * 850 * 4
+		}
 	}
 	promptTokens := promptChars / 4
 	if promptTokens < 1 {
@@ -307,32 +458,40 @@ func EstimateUsage(messages []Message, response string) TokenUsage {
 	}
 }
 
-// Factory to instantiate the active provider
-func NewProvider(cfg *config.Config) (Provider, error) {
-	pType := cfg.ActiveProvider
-	pCfg, ok := cfg.Providers[pType]
-	if !ok {
-		return nil, fmt.Errorf("provider configuration not found for %s", pType)
+// LoadImageAsDataURI reads a local image file (png/jpg/jpeg/gif/webp) or passes
+// through an http(s) URL / data URI unchanged. Used by --image and /image.
+func LoadImageAsDataURI(pathOrURL string) (string, error) {
+	s := strings.TrimSpace(pathOrURL)
+	if s == "" {
+		return "", fmt.Errorf("empty image reference")
+	}
+	if strings.HasPrefix(s, "data:image/") {
+		return s, nil
+	}
+	if strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://") {
+		return s, nil
 	}
 
-	switch pType {
-	case config.ProviderOpenRouter:
-		return NewOpenRouterProvider(pCfg.APIKey, pCfg.BaseURL, pCfg.Model), nil
-	case config.ProviderOpenAI:
-		return NewOpenAIProvider(pCfg.APIKey, pCfg.BaseURL, pCfg.Model), nil
-	case config.ProviderAnthropic:
-		return NewAnthropicProvider(pCfg.APIKey, pCfg.BaseURL, pCfg.Model), nil
-	case config.ProviderGemini:
-		return NewGeminiProvider(pCfg.APIKey, pCfg.BaseURL, pCfg.Model), nil
-	case config.ProviderGroq:
-		return NewGroqProvider(pCfg.APIKey, pCfg.BaseURL, pCfg.Model), nil
-	case config.ProviderDeepSeek:
-		return NewDeepSeekProvider(pCfg.APIKey, pCfg.BaseURL, pCfg.Model), nil
-	case config.ProviderOllama:
-		return NewOllamaProvider(pCfg.BaseURL, pCfg.Model), nil
-	case config.ProviderCustom:
-		return NewCustomProvider(pCfg.APIKey, pCfg.BaseURL, pCfg.Model), nil
-	default:
-		return NewOpenRouterProvider(pCfg.APIKey, pCfg.BaseURL, pCfg.Model), nil
+	data, err := os.ReadFile(s)
+	if err != nil {
+		// Also support `file://` style paths stripped of scheme.
+		data, err = os.ReadFile(strings.TrimPrefix(s, "file://"))
+		if err != nil {
+			return "", fmt.Errorf("cannot read image '%s': %w", s, err)
+		}
 	}
+
+	mime := "image/png"
+	switch strings.ToLower(filepath.Ext(s)) {
+	case ".jpg", ".jpeg":
+		mime = "image/jpeg"
+	case ".gif":
+		mime = "image/gif"
+	case ".webp":
+		mime = "image/webp"
+	}
+	if len(data) > 8*1024*1024 {
+		return "", fmt.Errorf("image '%s' exceeds 8MB inline limit", s)
+	}
+	return "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(data), nil
 }

@@ -14,16 +14,35 @@ type ModelPricing struct {
 	OutputPer1M float64
 }
 
-// Estimated pricing matrix for standard models
+// Estimated pricing matrix for standard models ($ per 1M tokens).
+// Values are approximations for cost dashboards; providers change prices —
+// treat as order-of-magnitude, and Ollama/Cerebras-style free tiers as 0.
 var PricingTable = map[string]ModelPricing{
 	"gpt-4o":                   {InputPer1M: 2.50, OutputPer1M: 10.00},
 	"gpt-4o-mini":              {InputPer1M: 0.15, OutputPer1M: 0.60},
+	"gpt-4.1":                  {InputPer1M: 2.00, OutputPer1M: 8.00},
+	"gpt-4.1-mini":             {InputPer1M: 0.40, OutputPer1M: 1.60},
+	"o4-mini":                  {InputPer1M: 1.10, OutputPer1M: 4.40},
 	"claude-3-5-sonnet-latest": {InputPer1M: 3.00, OutputPer1M: 15.00},
 	"claude-3-5-haiku-latest":  {InputPer1M: 0.80, OutputPer1M: 4.00},
+	"claude-sonnet-4-20250514": {InputPer1M: 3.00, OutputPer1M: 15.00},
+	"claude-opus-4-20250514":   {InputPer1M: 15.00, OutputPer1M: 75.00},
 	"gemini-2.0-flash":         {InputPer1M: 0.10, OutputPer1M: 0.40},
+	"gemini-2.5-flash":         {InputPer1M: 0.30, OutputPer1M: 2.50},
+	"gemini-2.5-pro":           {InputPer1M: 1.25, OutputPer1M: 10.00},
 	"deepseek-chat":            {InputPer1M: 0.14, OutputPer1M: 0.28},
+	"deepseek-reasoner":        {InputPer1M: 0.14, OutputPer1M: 0.28},
 	"llama-3.3-70b-versatile":  {InputPer1M: 0.59, OutputPer1M: 0.79},
+	"llama-3.1-8b-instant":     {InputPer1M: 0.05, OutputPer1M: 0.08},
+	"mistral-large-latest":     {InputPer1M: 2.00, OutputPer1M: 6.00},
+	"codestral-latest":         {InputPer1M: 0.30, OutputPer1M: 0.90},
+	"grok-3":                   {InputPer1M: 3.00, OutputPer1M: 15.00},
+	"grok-3-mini":              {InputPer1M: 0.30, OutputPer1M: 0.50},
+	"command-a-03-2025":        {InputPer1M: 2.50, OutputPer1M: 10.00},
+	"sonar":                    {InputPer1M: 1.00, OutputPer1M: 1.00},
 	"openrouter/free":          {InputPer1M: 0.00, OutputPer1M: 0.00},
+	"llama3.1-8b":              {InputPer1M: 0.00, OutputPer1M: 0.00}, // Cerebras free tier
+	"llama-3.3-70b":            {InputPer1M: 0.00, OutputPer1M: 0.00}, // Cerebras free tier
 }
 
 // SessionAnalytics tracks aggregate session usage

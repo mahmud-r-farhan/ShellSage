@@ -26,7 +26,7 @@ func PrintBanner(providerName, modelName, personaName string) {
 	cyan.Println(`  ███████║██║  ██║███████╗███████╗███████╗███████║██║  ██║╚██████╔╝███████╗`)
 	cyan.Println(`  ╚══════╝╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝`)
 	dim.Println()
-	hiCyan.Printf("  %-66s\n", "Autonomous AI Developer Platform  ·  v3.0  ·  Open Source")
+	hiCyan.Printf("  %-66s\n", "Autonomous AI Developer Platform  ·  v4.0  ·  20 Providers  ·  Open Source")
 	dim.Println("  " + strings.Repeat("─", 70))
 	fmt.Println()
 
@@ -66,6 +66,8 @@ func PrintHelp() {
 				{"/model", "Switch model for the current provider"},
 				{"/persona", "Switch AI persona | /persona create  → Custom wizard"},
 				{"/temp", "Adjust creativity temperature (0.0 precise → 1.0 creative)"},
+				{"/approve [ask|yolo|read-only]", "Set agent approval mode for risky tools"},
+				{"/image <path>", "Attach an image (screenshot/diagram) to your next message (vision)"},
 				{"/clear", "Clear conversation memory and start a fresh session"},
 				{"/exit, /quit", "Auto-save session and exit ShellSage"},
 			},
@@ -77,6 +79,7 @@ func PrintHelp() {
 				{"/plan <task>", "Generate structured architectural implementation plan"},
 				{"/debug <error>", "Deep root-cause diagnosis and automated patch generation"},
 				{"/doc <file>", "Generate comprehensive Markdown documentation for code file"},
+				{"/tools", "List agent tools with their risk classes"},
 			},
 		},
 		{
@@ -106,6 +109,7 @@ func PrintHelp() {
 				{"/retry, /alt", "Generate an alternative response for the last turn"},
 				{"/branch", "List and switch between conversation branches"},
 				{"/tree", "Render ASCII conversation tree map"},
+				{"/compress", "LLM-fold older turns into a context summary (long sessions)"},
 			},
 		},
 		{
@@ -117,6 +121,8 @@ func PrintHelp() {
 				{"/schedule at <HH:MM> <task>", "Run task at exact local machine time"},
 				{"/schedule in <dur> <task>", "Run task after relative delay (e.g. 30m, 2h)"},
 				{"/schedule list", "List scheduled jobs"},
+				{"/schedule daily <HH:MM> <task>", "Recurring daily job (survives restarts)"},
+				{"/schedule cancel <id>", "Remove a pending scheduled job"},
 			},
 		},
 		{
@@ -125,6 +131,9 @@ func PrintHelp() {
 				{"/save [filename]", "Save conversation session to file"},
 				{"/load [filename]", "Load a saved session"},
 				{"/list", "List all saved conversation files"},
+				{"/resume [name]", "Resume latest (or named) saved session"},
+				{"/rename <name>", "Rename saved session"},
+				{"/delete <name>", "Delete a saved session"},
 				{"/history [N]", "Show last N messages"},
 				{"/search <term>", "Search through conversation history"},
 				{"/stats, /analytics", "Token usage, cost estimate, and session metrics"},
@@ -143,7 +152,8 @@ func PrintHelp() {
 
 	fmt.Println()
 	dim.Println(strings.Repeat("─", 70))
-	color.HiBlack("  CLI Flags: --agent  --plan  --debug  --doc  --config  --version\n")
+	color.HiBlack("  CLI:   shellsage ask | agent | plan | debug | doc | audit | sec | doctor\n")
+	color.HiBlack("  Piping: cat err.log | shellsage debug -     Output: --json for scripts\n")
 	dim.Println(strings.Repeat("─", 70))
 	fmt.Println()
 }
