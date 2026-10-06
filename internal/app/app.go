@@ -33,7 +33,7 @@ import (
 )
 
 // Version is overridden at build time via -ldflags "-X main.Version=vX.Y.Z".
-var Version = "4.0.0"
+var Version = "4.1.0"
 
 // Main is the entry point logic exposed to cmd/shellsage and root main.go.
 func Main() {
@@ -107,7 +107,7 @@ func Run(version string, rawArgs []string) int {
 	_ = fs.Parse(rawArgs)
 
 	if *versionFlag {
-		fmt.Printf("ShellSage AI CLI v%s\n", version)
+		fmt.Printf("ShellSage AI CLI v%s\n", strings.TrimPrefix(version, "v"))
 		return 0
 	}
 	cli.Version = version

@@ -5,8 +5,8 @@
 
 # Binaries
 /go-menu-viewer
-shellsage
-shellsage.exe
+/shellsage
+/shellsage.exe
 *.out
 *.exe
 

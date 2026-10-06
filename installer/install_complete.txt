@@ -1,0 +1,43 @@
+======================================================================
+ ShellSage Installation Completed!
+======================================================================
+
+ Author:  Mahmud Rahman
+ License: MIT License
+
+Thank you for installing ShellSage!
+
+GETTING STARTED:
+----------------------------------------------------------------------
+1. Launch ShellSage:
+   • Double-click the ShellSage shortcut on your Desktop, or
+   • Open any PowerShell or Command Prompt window and type:
+     shellsage
+
+2. Configure your AI Provider & API Key:
+   • ShellSage will prompt you on first run if no API key is detected.
+   • You can also configure keys anytime via command line:
+     shellsage config set groq.api_key gsk_your_key_here
+     shellsage config set openrouter.api_key sk-or-v1-your_key_here
+     shellsage config set openai.api_key sk-your_key_here
+     shellsage config set anthropic.api_key sk-ant-your_key_here
+
+3. Verify Environment Health:
+   Run the built-in diagnostic tool:
+   shellsage doctor
+
+4. Useful Commands:
+   • Interactive Chat:
+     shellsage
+   • Quick Single-Query:
+     shellsage ask "How do I optimize SQL query performance?"
+   • Autonomous Developer Agent:
+     shellsage agent "Fix failing unit tests in this repository"
+   • System Planning:
+     shellsage plan "Design microservice event bus"
+   • Security Scan:
+     shellsage audit https://example.com
+
+5. Documentation & Help:
+   Within the interactive CLI, type /help to view all available commands.
+   Project repository: https://github.com/mahmud-r-farhan/ShellSage

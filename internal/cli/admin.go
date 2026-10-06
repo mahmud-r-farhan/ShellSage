@@ -72,7 +72,7 @@ func Dispatch(cmd string, args []string) int {
 	case "completion":
 		return runCompletion(args)
 	case "version":
-		fmt.Printf("ShellSage %s\n", Version)
+		fmt.Printf("ShellSage v%s\n", strings.TrimPrefix(Version, "v"))
 		return 0
 	case "help":
 		PrintUsage()

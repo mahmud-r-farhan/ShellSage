@@ -54,7 +54,7 @@ jobs:
           mkdir -p dist
           VERSION="${{ github.ref_name }}"
           if [ -z "$VERSION" ] || [ "$VERSION" = "main" ]; then
-            VERSION="v4.0.0"
+            VERSION="v4.1.0"
           fi
           go build -ldflags="-s -w -X main.Version=${VERSION}" -o dist/${{ matrix.output }} .
 
@@ -64,9 +64,50 @@ jobs:
           name: ${{ matrix.output }}
           path: dist/${{ matrix.output }}
 
+  build-installer:
+    name: Build Windows Inno Setup Installer
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Download Dependencies
+        run: go mod download
+
+      - name: Compile Windows Host Binary
+        env:
+          CGO_ENABLED: 0
+        run: |
+          $VERSION = "${{ github.ref_name }}"
+          if (-not $VERSION -or $VERSION -eq "main") {
+            $VERSION = "v4.1.0"
+          }
+          go build -ldflags="-s -w -X main.Version=$VERSION" -o shellsage.exe .
+
+      - name: Compile Inno Setup Installer
+        run: |
+          $VERSION = "${{ github.ref_name }}"
+          if (-not $VERSION -or $VERSION -eq "main") {
+            $VERSION = "v4.1.0"
+          }
+          $cleanVer = $VERSION -replace "^v",""
+          & "ISCC.exe" "/DMyAppVersion=$cleanVer" installer\ShellSage-Setup.iss
+
+      - name: Upload Installer Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ShellSage-Setup.exe
+          path: dist/ShellSage-Setup.exe
+
   publish-release:
     name: Publish GitHub Release
-    needs: build-release
+    needs: [build-release, build-installer]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -95,26 +136,35 @@ jobs:
             # 🚀 ShellSage ${{ github.ref_name }} - Official Release
 
             Welcome to the next generation of **ShellSage** — The Autonomous AI Terminal Assistant & Developer Platform.
+            Crafted and maintained by **Mahmud Rahman**, Lead Developer at **The Bengal Bytes**.
 
             ---
 
-            ### 📦 Included Cross-Platform Binaries
+            ### 📦 Included Cross-Platform Binaries & Installers
+            - **Windows Setup Installer (GUI Setup wizard with Desktop Shortcut & MIT License)**: `ShellSage-Setup.exe`
+            - **Windows Standalone (x86_64 / amd64)**: `shellsage-windows-amd64.exe`
             - **Linux (x86_64 / amd64)**: `shellsage-linux-amd64`
             - **Linux (ARM64)**: `shellsage-linux-arm64`
             - **macOS (Apple Silicon M1/M2/M3/M4 / arm64)**: `shellsage-darwin-arm64`
             - **macOS (Intel / amd64)**: `shellsage-darwin-amd64`
-            - **Windows (x86_64 / amd64)**: `shellsage-windows-amd64.exe`
             - **Checksums**: `SHA256SUMS.txt`
 
             ---
 
             ### 🌟 Key Highlights & Capabilities
-            1. **Universal Multi-Provider Engine**: 20 AI providers (OpenRouter, OpenAI, Anthropic Claude, Google Gemini, Groq, DeepSeek, Mistral, xAI/Grok, Together AI, Fireworks, Cerebras, NVIDIA NIM, GitHub Models, Hugging Face, Perplexity, DeepInfra, Cohere, Azure OpenAI, Ollama, and Custom endpoints).
-            2. **Subcommand & Unix Pipe Architecture**: Clean subcommands (`ask`, `agent`, `plan`, `debug`, `doc`, `audit`, `sec`, `chat`, `config`, `provider`, `models`, `sessions`, `doctor`, `completion`, `version`), stdin piping, and `--json` envelope for CI/CD scripting.
-            3. **Ethical Defensive Security Suite**: Live HTTP security headers audit, SSL/TLS certificate validator, SAST scanner for secret keys and vulnerabilities, port checking, and unified audits.
-            4. **Autonomous ReAct Agent & Approval Gates**: Multi-tool execution steps, interactive approval prompts (`ask`/`yolo`/`read-only`), file patching, git commands, and REST HTTP tools.
-            5. **Developer Modes & Workflows**: Architecture planner (`/plan`), root-cause debugger (`/debug`), and doc generator (`/doc`).
-            6. **Conversation Branching & Compression**: Chat trees (`/retry`, `/alt`, `/branch`), token budget trimming, and `/compress`.
-            7. **Task Queue & Scheduler**: Background task queue (`/queue`) and persistent local clock scheduler (`/schedule`).
-            8. **Native Clipboard & Exporters**: `/copy` and multi-format session export (Markdown, PDF, HTML, JSON).
-            9. **Diagnostics & Cross-Platform Support**: Built-in `doctor` command, shell autocompletion (Bash, Zsh, Fish, PowerShell), and Docker containerization.
+            1. **Official Windows Installer**: Native Inno Setup wizard with MIT License terms, detailed installation info screen, desktop shortcut checkmark option, PATH integration, and 1-click CLI launch.
+            2. **Universal Multi-Provider Engine**: 20 AI providers (OpenRouter, OpenAI, Anthropic Claude, Google Gemini, Groq, DeepSeek, Mistral, xAI/Grok, Together AI, Fireworks, Cerebras, NVIDIA NIM, GitHub Models, Hugging Face, Perplexity, DeepInfra, Cohere, Azure OpenAI, Ollama, and Custom endpoints).
+            3. **Subcommand & Unix Pipe Architecture**: Clean subcommands (`ask`, `agent`, `plan`, `debug`, `doc`, `audit`, `sec`, `chat`, `config`, `provider`, `models`, `sessions`, `doctor`, `completion`, `version`), stdin piping, and `--json` envelope for CI/CD scripting.
+            4. **Ethical Defensive Security Suite**: Live HTTP security headers audit, SSL/TLS certificate validator, SAST scanner for secret keys and vulnerabilities, port checking, and unified audits.
+            5. **Autonomous ReAct Agent & Approval Gates**: Multi-tool execution steps, interactive approval prompts (`ask`/`yolo`/`read-only`), file patching, git commands, and REST HTTP tools.
+            6. **Developer Modes & Workflows**: Architecture planner (`/plan`), root-cause debugger (`/debug`), and doc generator (`/doc`).
+            7. **Conversation Branching & Compression**: Chat trees (`/retry`, `/alt`, `/branch`), token budget trimming, and `/compress`.
+            8. **Task Queue & Scheduler**: Background task queue (`/queue`) and persistent local clock scheduler (`/schedule`).
+            9. **Native Clipboard & Exporters**: `/copy` and multi-format session export (Markdown, PDF, HTML, JSON).
+            10. **Diagnostics & Cross-Platform Support**: Built-in `doctor` command, shell autocompletion (Bash, Zsh, Fish, PowerShell), and Docker containerization.
+
+            ---
+
+            ### 📄 License & Credits
+            - **License**: MIT License ([LICENSE](LICENSE))
+            - **Author**: Mahmud Rahman, Lead Developer at [The Bengal Bytes](https://github.com/mahmud-r-farhan)

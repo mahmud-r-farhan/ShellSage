@@ -40,17 +40,23 @@ echo ✅ Dependencies installed!
 REM Build the project
 echo.
 echo 🔨 Building ShellSage...
-call go build -o shellsage.exe
-echo ✅ Build complete!
+call go build -ldflags="-s -w" -o shellsage.exe .
+echo ✅ Build complete: shellsage.exe
 
 echo.
 echo 🎉 Setup finished!
 echo.
 echo 📖 Next steps:
-echo    1. Make sure OPENROUTER_API_KEY is set in your .env file
-echo    2. Run: shellsage.exe
-echo    3. Type /help for available commands
+echo    1. Configure provider API key:
+echo       shellsage.exe config set groq.api_key ^<YOUR_KEY^>
+echo    2. Run interactive CLI:
+echo       shellsage.exe
+echo    3. Or run the Windows Installer with Desktop Shortcut:
+echo       powershell -ExecutionPolicy Bypass -File scripts\install.ps1
+echo       or compile/run dist\ShellSage-Setup.exe
 echo.
+echo Author: Mahmud Rahman, Lead Developer at The Bengal Bytes
+echo License: MIT License
 echo Happy chatting! 💬
 echo.
 pause

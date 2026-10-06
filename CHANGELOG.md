@@ -2,6 +2,24 @@
 
 All notable changes to **ShellSage** are documented in this file.
 
+## [4.1.0] - 2026-10-06
+
+### 📦 Windows Installer & Desktop Integration
+- **Inno Setup Windows Installer**: Added `installer/ShellSage-Setup.iss` for automated GUI installation wizard.
+- **MIT License Agreement Screen**: Direct integration of MIT License (`LICENSE`) displayed during installation with acceptance gate.
+- **Pre & Post Installation Guidance**: Added comprehensive information screens (`installer/installer_info.txt` and `installer/install_complete.txt`) covering features, requirements, and commands.
+- **Desktop Shortcut Checkmark Option**: Checkmark option during setup (`desktopicon` task) allowing users to create a Desktop shortcut (`ShellSage.lnk`).
+- **Instant CLI Launch**: Finishing installation or double-clicking the desktop shortcut directly launches the interactive ShellSage CLI.
+- **Environment PATH Integration**: Optional checkmark to register ShellSage directly into the system or user `PATH`.
+- **Custom Application Icon**: High-resolution multi-size Windows icon (`installer/shellsage.ico`).
+- **PowerShell Automated Installer**: Added `scripts/install.ps1` for script-based installation with Desktop shortcut checkmark and PATH integration.
+- **Updated Setup Script**: Enhanced `setup.bat` with installer references and build steps.
+
+### 🚀 CI/CD & GitHub Release Pipeline
+- **Automated Windows Installer Build**: Updated `.github/workflows/release.yml` with `build-installer` job on `windows-latest` runner using Inno Setup compiler (`ISCC.exe`).
+- **Release Dry-Run Tool**: Added `scripts/release-dry-run.ps1` and `make release-dry-run` to simulate and validate the full release pipeline, cross-platform compilation, checksums, and git push dry-run before publishing.
+- **Author & Attribution**: Documented author Mahmud Rahman, Lead Developer at The Bengal Bytes across all packages, license files, and release metadata.
+
 ## [4.0.0] - 2026-10-05
 
 ### 🌐 Provider Engine (single source of truth + 12 new providers)

@@ -1,26 +1,28 @@
-.PHONY: help build run clean test test-race test-coverage lint fmt install setup build-all ps-setup docker-build docker-run check cover
+.PHONY: help build run clean test test-race test-coverage lint fmt install setup build-all ps-setup docker-build docker-run check cover installer release-dry-run
 
 # Default target
 help:
-	@echo "ShellSage v4.0 - Makefile Commands"
+	@echo "ShellSage v4.1 - Makefile Commands"
 	@echo "======================================"
 	@echo ""
 	@echo "Available commands:"
-	@echo "  make setup         - Setup project (download dependencies & tidy)"
-	@echo "  make build         - Build the project binary"
-	@echo "  make build-all     - Build cross-platform release binaries"
-	@echo "  make run           - Build and run the project interactively"
-	@echo "  make test          - Run all unit tests"
-	@echo "  make test-race     - Run all unit tests with race detector"
-	@echo "  make test-coverage - Run unit tests with code coverage summary"
-	@echo "  make lint          - Run go vet and format verification"
-	@echo "  make fmt           - Format all code"
-	@echo "  make ps-setup      - Verify PowerShell environment module"
-	@echo "  make docker-build  - Build minimal Docker container"
-	@echo "  make docker-run    - Run ShellSage inside Docker container"
-	@echo "  make install       - Install shellsage globally"
-	@echo "  make clean         - Clean build artifacts"
-	@echo "  make help          - Show this help message"
+	@echo "  make setup           - Setup project (download dependencies & tidy)"
+	@echo "  make build           - Build the project binary"
+	@echo "  make build-all       - Build cross-platform release binaries"
+	@echo "  make installer       - Build Inno Setup Windows installer"
+	@echo "  make release-dry-run - Run full release build & dry-run simulation"
+	@echo "  make run             - Build and run the project interactively"
+	@echo "  make test            - Run all unit tests"
+	@echo "  make test-race       - Run all unit tests with race detector"
+	@echo "  make test-coverage   - Run unit tests with code coverage summary"
+	@echo "  make lint            - Run go vet and format verification"
+	@echo "  make fmt             - Format all code"
+	@echo "  make ps-setup        - Verify PowerShell environment module"
+	@echo "  make docker-build    - Build minimal Docker container"
+	@echo "  make docker-run      - Run ShellSage inside Docker container"
+	@echo "  make install         - Install shellsage globally"
+	@echo "  make clean           - Clean build artifacts"
+	@echo "  make help            - Show this help message"
 
 setup:
 	@echo "📦 Setting up project dependencies..."
@@ -42,6 +44,15 @@ build-all:
 	GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o dist/shellsage-darwin-arm64 ./cmd/shellsage
 	GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o dist/shellsage-windows-amd64.exe ./cmd/shellsage
 	@echo "✅ Cross-platform build complete in dist/"
+
+installer:
+	@echo "📦 Compiling Windows Inno Setup installer..."
+	@powershell -Command "if (Test-Path 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe') { & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' installer\ShellSage-Setup.iss } elseif (Get-Command iscc -ErrorAction SilentlyContinue) { & iscc installer\ShellSage-Setup.iss } else { Write-Error 'Inno Setup Compiler (ISCC) not found.' }"
+	@echo "✅ Windows installer built in dist/ShellSage-Setup.exe"
+
+release-dry-run:
+	@echo "🚀 Initiating release dry-run..."
+	@powershell -ExecutionPolicy Bypass -File scripts/release-dry-run.ps1
 
 run: build
 	@echo "🚀 Running ShellSage..."

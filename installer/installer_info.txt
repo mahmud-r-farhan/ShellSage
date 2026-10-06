@@ -1,0 +1,75 @@
+======================================================================
+ ShellSage - Autonomous AI Terminal Assistant & Developer Platform
+======================================================================
+
+ Author:     Mahmud Rahman
+ Role:       Lead Developer at The Bengal Bytes
+ License:    MIT License
+ Repository: https://github.com/mahmud-r-farhan/ShellSage
+
+----------------------------------------------------------------------
+1. WELCOME TO SHELLSAGE
+----------------------------------------------------------------------
+ShellSage is an enterprise-grade, lightning-fast, and open-source AI 
+terminal assistant built for software engineers, systems architects, 
+security auditors, and DevOps professionals.
+
+It brings universal multi-provider LLM support, autonomous tool 
+execution (filesystem, shell, git, web search, REST HTTP), conversation 
+branching, custom persona studios, background task queues, local system 
+schedulers, native clipboard integration, and multi-format session 
+exports right to your command line.
+
+----------------------------------------------------------------------
+2. KEY FEATURES & CAPABILITIES
+----------------------------------------------------------------------
+• 20 AI Providers:
+  OpenRouter (300+ models), OpenAI (GPT-4.1, o4-mini), Anthropic Claude,
+  Google Gemini (2.5), Groq (ultra-fast LPU), DeepSeek (V3/R1), Mistral,
+  xAI Grok, Together AI, Fireworks, Cerebras, NVIDIA NIM, GitHub Models,
+  Hugging Face, Perplexity Sonar, DeepInfra, Cohere, Azure OpenAI, 
+  and local Ollama with model auto-detection.
+
+• Autonomous ReAct Agent & Multi-Tool Execution:
+  Autonomous execution loop with human-in-the-loop safety approval gates 
+  (ask / yolo / read-only), safe shell commands, atomic file patching, 
+  git inspection, and REST requests with SSRF guards.
+
+• Ethical Defensive Security Suite:
+  Live HTTP security headers audit, SSL/TLS certificate validator, 
+  SAST code and secret scanner (high-entropy secret detection), 
+  and port checking.
+
+• Dedicated Developer Modes:
+  - Architecture & Implementation Planner (/plan)
+  - Root-Cause Debugger & Log Inspector (/debug)
+  - Automated Documentation Generator (/doc)
+
+• Workflow Optimizations:
+  - Conversation branching (/branch, /tree, /retry, /alt)
+  - Token budget trimming & automatic conversation compression (/compress)
+  - Persistent background task queues (/queue)
+  - Local system scheduler (/schedule)
+  - Native clipboard copy (/copy) and multi-format exporters (Markdown, HTML, PDF, JSON)
+
+----------------------------------------------------------------------
+3. SYSTEM REQUIREMENTS & INTEGRATION
+----------------------------------------------------------------------
+• Operating System: Windows 10, Windows 11, or Windows Server (64-bit)
+• Shells Supported: Windows Terminal, PowerShell 7+, Windows PowerShell 5.1,
+  Command Prompt (cmd.exe), Git Bash
+• Connectivity: Internet access for cloud LLM APIs, or local Ollama runtime
+
+----------------------------------------------------------------------
+4. INSTALLATION OPTIONS
+----------------------------------------------------------------------
+• Desktop Shortcut:
+  Select the checkmark option in the setup wizard to place a convenient 
+  ShellSage shortcut directly on your Desktop for 1-click CLI launch.
+
+• System PATH Integration:
+  Select the PATH environment option to access 'shellsage' from any command 
+  prompt or terminal window anywhere on your machine.
+
+Proceed with the setup wizard to review the MIT License agreement and 
+complete the installation.

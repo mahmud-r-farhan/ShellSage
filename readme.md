@@ -34,8 +34,11 @@ ShellSage/
 │   ├── security/          # SAST, SSL, Port & Headers security auditors
 │   ├── tools/             # Agent tools (FS, Git, Shell, Web, Patching)
 │   └── tui/               # Terminal UI banners, menus & wizards
+├── installer/             # Inno Setup Windows installer & assets (.iss, .ico)
 ├── scripts/
-│   └── ShellSage.ps1      # PowerShell helper module & autocompletion
+│   ├── ShellSage.ps1      # PowerShell helper module & autocompletion
+│   ├── install.ps1        # PowerShell automated installer with desktop shortcut
+│   └── release-dry-run.ps1 # GitHub Release build & dry-run simulation
 ├── Makefile               # Modular build, test, lint & cross-compile targets
 └── .github/workflows/     # CI, Release & Linting GitHub Actions
 ```
@@ -85,12 +88,25 @@ Test-ShellSageEnvironment
 
 ### 1. Installation
 
-**Option A: Install via Go**
+**Option A: Windows Setup Installer (Recommended for Windows)**
+Download `ShellSage-Setup.exe` from the latest [GitHub Release](https://github.com/mahmud-r-farhan/ShellSage/releases):
+- 🛡️ Built-in **MIT License** agreement screen
+- ℹ️ Detailed installation overview and system capability inspection
+- 🖥️ **Desktop shortcut checkmark option** for instant 1-click CLI launch
+- 🌐 Automatic PATH environment variable integration
+- 🚀 Instant CLI launcher upon finish
+
+Or install via PowerShell:
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/install.ps1
+```
+
+**Option B: Install via Go**
 ```bash
 go install github.com/mahmud-r-farhan/ShellSage/cmd/shellsage@latest
 ```
 
-**Option B: Build from Source**
+**Option C: Build from Source**
 ```bash
 git clone https://github.com/mahmud-r-farhan/ShellSage.git
 cd ShellSage
@@ -99,9 +115,10 @@ make build
 ./shellsage
 ```
 
-**Option C: Build All Cross-Platform Binaries**
+**Option D: Build All Cross-Platform Binaries & Installer**
 ```bash
 make build-all
+make installer
 ```
 
 ---
@@ -150,6 +167,15 @@ Cross-platform GitHub Actions workflows are configured in `.github/workflows/ci.
 
 ---
 
+## 👥 Author & Maintainer
+
+Developed and maintained by **Mahmud Rahman**, Lead Developer at **The Bengal Bytes**.
+
+- **GitHub**: [@mahmud-r-farhan](https://github.com/mahmud-r-farhan)
+- **Organization**: The Bengal Bytes
+
+---
+
 ## 📄 License
 
-Distributed under the MIT License. See [LICENSE](LICENSE) for details.
+Distributed under the MIT License. Copyright (c) 2026 Mahmud Rahman, Lead Developer at The Bengal Bytes. See [LICENSE](LICENSE) for details.
