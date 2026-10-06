@@ -54,7 +54,7 @@ jobs:
           mkdir -p dist
           VERSION="${{ github.ref_name }}"
           if [ -z "$VERSION" ] || [ "$VERSION" = "main" ]; then
-            VERSION="v3.0.0"
+            VERSION="v4.0.0"
           fi
           go build -ldflags="-s -w -X main.Version=${VERSION}" -o dist/${{ matrix.output }} .
 
@@ -92,7 +92,7 @@ jobs:
             dist/SHA256SUMS.txt
           generate_release_notes: true
           body: |
-            # 🚀 ShellSage v3.0.0 - Official Release
+            # 🚀 ShellSage ${{ github.ref_name }} - Official Release
 
             Welcome to the next generation of **ShellSage** — The Autonomous AI Terminal Assistant & Developer Platform.
 
@@ -109,17 +109,12 @@ jobs:
             ---
 
             ### 🌟 Key Highlights & Capabilities
-            1. **Universal Multi-Provider Engine**: Direct streaming support for OpenRouter, OpenAI, Anthropic Claude, Google Gemini, Groq Cloud, DeepSeek, Ollama (Local LLMs), and Custom endpoints.
-            2. **Interactive TUI & Setup Wizard**: `/config` and `--config` interactive terminal menus.
-            3. **Ethical Defensive Security & Vulnerability Audit Suite**:
-               - `/sec headers <url>`: HTTP Security Headers & Cookie Auditor (HSTS, CSP, X-Frame-Options, etc.).
-               - `/sec ssl <domain>`: Live SSL/TLS Certificate Validator & Expiry Checker.
-               - `/sec sast [path]`: Static Application Security Testing (SAST) for leaked keys, tokens, and SQL injections.
-               - `/sec ports <host>`: Safe service port availability scanner.
-               - `/sec audit <target>` / `/audit`: Complete unified security assessment.
-            4. **Autonomous ReAct Agent & Tools**: Autonomous goal execution with local filesystem operations, shell execution, live web search, and web scraping.
-            5. **Developer Modes**: Architectural Planning (`/plan`), Root-Cause Diagnostics (`/debug`), and Documentation Generator (`/doc`).
-            6. **Conversation Tree & Branching**: Fork chats and explore alternative AI completions (`/retry`, `/alt`, `/branch`, `/tree`).
-            7. **Task Queue & Local Time-Based Scheduler**: Background task queue (`/queue`) and local machine clock scheduler (`/schedule at <HH:MM>`).
-            8. **Native Clipboard & Exporters**: `/copy` (last response / code-only / all) and multi-format exporters (Markdown, printable PDF, dark-themed HTML, JSON).
-            9. **Docker & CI/CD**: Ready-to-use `Dockerfile` and `docker-compose.yml`.
+            1. **Universal Multi-Provider Engine**: 20 AI providers (OpenRouter, OpenAI, Anthropic Claude, Google Gemini, Groq, DeepSeek, Mistral, xAI/Grok, Together AI, Fireworks, Cerebras, NVIDIA NIM, GitHub Models, Hugging Face, Perplexity, DeepInfra, Cohere, Azure OpenAI, Ollama, and Custom endpoints).
+            2. **Subcommand & Unix Pipe Architecture**: Clean subcommands (`ask`, `agent`, `plan`, `debug`, `doc`, `audit`, `sec`, `chat`, `config`, `provider`, `models`, `sessions`, `doctor`, `completion`, `version`), stdin piping, and `--json` envelope for CI/CD scripting.
+            3. **Ethical Defensive Security Suite**: Live HTTP security headers audit, SSL/TLS certificate validator, SAST scanner for secret keys and vulnerabilities, port checking, and unified audits.
+            4. **Autonomous ReAct Agent & Approval Gates**: Multi-tool execution steps, interactive approval prompts (`ask`/`yolo`/`read-only`), file patching, git commands, and REST HTTP tools.
+            5. **Developer Modes & Workflows**: Architecture planner (`/plan`), root-cause debugger (`/debug`), and doc generator (`/doc`).
+            6. **Conversation Branching & Compression**: Chat trees (`/retry`, `/alt`, `/branch`), token budget trimming, and `/compress`.
+            7. **Task Queue & Scheduler**: Background task queue (`/queue`) and persistent local clock scheduler (`/schedule`).
+            8. **Native Clipboard & Exporters**: `/copy` and multi-format session export (Markdown, PDF, HTML, JSON).
+            9. **Diagnostics & Cross-Platform Support**: Built-in `doctor` command, shell autocompletion (Bash, Zsh, Fish, PowerShell), and Docker containerization.
